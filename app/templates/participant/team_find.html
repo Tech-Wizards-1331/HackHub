@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Find Teams for {{ hackathon.name }}</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Team Name</th>
+            <th>Members Count</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team in teams %}
+        <tr>
+            <td>{{ team.name }}</td>
+            <td>{{ team.members|length }}</td>
+            <td>
+                <!-- To join, they need the access code officially, or Request to Join via button -->
+                <!-- For simplicity in this demo, we'll just show the team exists and suggest contacting -->
+                <button class="btn btn-sm btn-outline-info" disabled>Contact Leader</button>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No open teams found. Create one!</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

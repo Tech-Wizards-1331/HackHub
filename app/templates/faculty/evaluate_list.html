@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Evaluate Teams: {{ hackathon.name }}</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Team Name</th>
+            <th>Members</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team in teams %}
+        <tr>
+            <td>{{ team.name }}</td>
+            <td>{{ team.members|length }}</td>
+            <td>
+                <a href="{{ url_for('faculty.evaluate_team', team_id=team.id) }}" class="btn btn-sm btn-primary">Evaluate</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Evaluate Team: {{ team.name }}</h2>
+<form method="POST">
+    <div class="mb-3">
+        <label>Stage</label>
+        <select name="stage_id" class="form-select" required>
+            {% for stage in stages %}
+            <option value="{{ stage.id }}">{{ stage.name }} (Weight: {{ stage.weightage }}%)</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label>Score (0-10)</label>
+        <input type="number" name="score" min="0" max="10" step="0.1" class="form-control" required>
+    </div>
+    <div class="mb-3">
+        <label>Comments</label>
+        <textarea name="comments" class="form-control"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Submit Evaluation</button>
+</form>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translate3d(0, 40px, 0);
+        }
+        to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+        }
+    }
+    .animate-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+        opacity: 0;
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    
+    .hover-scale {
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .hover-scale:hover {
+        transform: scale(1.03);
+    }
+
+    @keyframes float {
+        0% { transform: translate(0, 0px) rotate(-10deg); }
+        50% { transform: translate(0, 20px) rotate(-5deg); }
+        100% { transform: translate(0, -0px) rotate(-10deg); }
+    }
+</style>
+<!-- Decorative background elements specifically for landing -->
+<div style="position: absolute; top: 10%; right: 5%; width: 300px; height: 300px; background: radial-gradient(circle, #818cf8 0%, rgba(99, 102, 241, 0) 70%); border-radius: 50%; filter: blur(60px); z-index: -1; opacity: 0.6;"></div>
+<div style="position: absolute; bottom: 20%; left: 5%; width: 200px; height: 200px; background: radial-gradient(circle, #c084fc 0%, rgba(192, 132, 252, 0) 70%); border-radius: 50%; filter: blur(60px); z-index: -1; opacity: 0.6;"></div>
+
+<!-- HERO SECTION -->
+<div class="row align-items-center mb-5 py-5 min-vh-50">
+    <div class="col-lg-6 animate-up">
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 mb-3">🚀 The #1 Hackathon Platform</span>
+        <h1 class="display-3 fw-bold mb-3" style="color: var(--text-main);">Innovate. <br>Build. <span class="text-primary" style="text-shadow: 0 0 30px rgba(79, 70, 229, 0.3);">Win.</span></h1>
+        <p class="lead text-muted mb-4 delay-1 animate-up" style="font-size: 1.25rem;">The ultimate platform for managing university hackathons. Register, form teams, and turn your ideas into reality with seamless tools.</p>
+        <div class="d-flex gap-3 delay-2 animate-up">
+            {% if not session.user_id %}
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 gap-3 fw-semibold shadow-lg hover-scale">Get Started <i class="bi bi-arrow-right"></i></a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg px-4 fw-semibold hover-scale" style="background: rgba(255,255,255,0.3); backdrop-filter: blur(4px); border: 1px solid var(--border-glass);">Login</a>
+            {% else %}
+            <a href="{{ url_for('participant.dashboard') }}" class="btn btn-primary btn-lg px-4 hover-scale">Go to Dashboard <i class="bi bi-arrow-right ms-2"></i></a>
+            {% endif %}
+        </div>
+        <div class="mt-4 pt-3 border-top border-secondary border-opacity-10 d-flex gap-4 delay-3 animate-up">
+            <div>
+                <h5 class="fw-bold mb-0">50+</h5>
+                <small class="text-muted">Hackathons</small>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0">1.2k+</h5>
+                <small class="text-muted">Developers</small>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0">200+</h5>
+                <small class="text-muted">Projects</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block text-center position-relative animate-up delay-2">
+        <div class="card p-0 overflow-hidden shadow-lg border-0 hover-scale" style="transform: rotate(2deg) translateY(20px); width: 85%; margin: 0 auto; background: rgba(255,255,255,0.4); backdrop-filter: blur(20px); transition: all 0.5s ease;">
+             <div class="card-body p-5 d-flex align-items-center justify-content-center" style="height: 400px;">
+                <div class="text-center">
+                    <div class="mb-4 position-relative d-inline-block">
+                        <div class="position-absolute top-50 start-50 translate-middle" style="width: 120px; height: 120px; background: rgba(79, 70, 229, 0.2); filter: blur(20px); border-radius: 50%;"></div>
+                        <i class="bi bi-code-square display-1 text-primary position-relative" style="font-size: 6rem; text-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);"></i>
+                    </div>
+                    <h3 class="fw-bold mt-3">HackHub v2.0</h3>
+                    <p class="text-muted">Manage events like a pro</p>
+                    <div class="d-flex justify-content-center gap-2 mt-3">
+                        <span class="badge bg-white text-dark shadow-sm py-2 px-3">Team Mgmt</span>
+                        <span class="badge bg-white text-dark shadow-sm py-2 px-3">Live Scoring</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Glass Overlay Stripe -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%); pointer-events: none;"></div>
+        </div>
+        
+        <!-- Floating Elements -->
+        <div class="card position-absolute p-3 d-flex align-items-center justify-content-center shadow" style="width: 80px; height: 80px; top: 0; right: 5%; transform: rotate(-10deg); background: rgba(255,255,255,0.8); animation: float 6s ease-in-out infinite;">
+            <i class="bi bi-cpu fs-1 text-secondary"></i>
+        </div>
+        <div class="card position-absolute p-3 d-flex align-items-center justify-content-center shadow" style="width: 70px; height: 70px; bottom: 10%; left: 5%; transform: rotate(15deg); background: rgba(255,255,255,0.8); animation: float 8s ease-in-out infinite reverse;">
+            <i class="bi bi-lightning-charge fs-2 text-warning"></i>
+        </div>
+    </div>
+</div>
+
+<!-- FEATURES SECTION -->
+<div class="row mb-5 text-center animate-up delay-3">
+    <div class="col-lg-8 mx-auto">
+        <h2 class="fw-bold mb-3">Why Choose HackHub?</h2>
+        <p class="text-muted lead">Everything you need to organize and participate in world-class hackathons.</p>
+    </div>
+</div>
+
+<div class="row g-4 py-3 mb-5 py-5 row-cols-1 row-cols-lg-3 animate-up delay-3">
+    <div class="col">
+        <div class="card h-100 p-4 border-0 shadow-sm hover-scale">
+             <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary fs-2 mb-4 rounded-3 shadow-sm" style="width: 4rem; height: 4rem;">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <h3 class="fs-4 fw-bold mb-3">Seamless Team Formation</h3>
+            <p class="text-muted">Algorithm-based matching and easy invite systems help you find the perfect teammates based on skills and interests.</p>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 p-4 border-0 shadow-sm hover-scale">
+            <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success fs-2 mb-4 rounded-3 shadow-sm" style="width: 4rem; height: 4rem;">
+                <i class="bi bi-qr-code-scan"></i>
+            </div>
+            <h3 class="fs-4 fw-bold mb-3">Smart QR Check-ins</h3>
+            <p class="text-muted">Forget paper lists. Check in participants, distribute meals, and manage access with our integrated QR system.</p>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 p-4 border-0 shadow-sm hover-scale">
+            <div class="d-inline-flex align-items-center justify-content-center bg-warning bg-opacity-10 text-warning fs-2 mb-4 rounded-3 shadow-sm" style="width: 4rem; height: 4rem;">
+                <i class="bi bi-trophy-fill"></i>
+            </div>
+            <h3 class="fs-4 fw-bold mb-3">Fair Evaluation</h3>
+            <p class="text-muted">Real-time scoring dashboards for judges with conflict detection ensures the best projects win.</p>
+        </div>
+    </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="card border-0 mb-5 overflow-hidden animate-up delay-3" style="background: rgba(255,255,255,0.5);">
+    <div class="card-body p-5">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">How It Works</h2>
+        </div>
+        <div class="row g-4 text-center position-relative">
+            <!-- Connecting Line -->
+            <div class="position-absolute top-50 start-0 w-100 border-top border-primary border-opacity-25 d-none d-lg-block" style="z-index: 0;"></div>
+            
+            <div class="col-lg-3 position-relative z-1">
+                <div class="bg-white rounded-circle shadow-sm mx-auto mb-3 d-flex align-items-center justify-content-center hover-scale" style="width: 60px; height: 60px;">
+                    <span class="fw-bold text-primary fs-4">1</span>
+                </div>
+                <h5 class="fw-bold">Register</h5>
+                <p class="text-muted small">Create an account and set up your profile.</p>
+            </div>
+            <div class="col-lg-3 position-relative z-1">
+                <div class="bg-white rounded-circle shadow-sm mx-auto mb-3 d-flex align-items-center justify-content-center hover-scale" style="width: 60px; height: 60px;">
+                    <span class="fw-bold text-primary fs-4">2</span>
+                </div>
+                <h5 class="fw-bold">Join/Create Team</h5>
+                <p class="text-muted small">Find teammates or invite your friends.</p>
+            </div>
+            <div class="col-lg-3 position-relative z-1">
+                <div class="bg-white rounded-circle shadow-sm mx-auto mb-3 d-flex align-items-center justify-content-center hover-scale" style="width: 60px; height: 60px;">
+                    <span class="fw-bold text-primary fs-4">3</span>
+                </div>
+                <h5 class="fw-bold">Submit Solution</h5>
+                <p class="text-muted small">Upload your problem statement PDF.</p>
+            </div>
+             <div class="col-lg-3 position-relative z-1">
+                <div class="bg-white rounded-circle shadow-sm mx-auto mb-3 d-flex align-items-center justify-content-center hover-scale" style="width: 60px; height: 60px;">
+                    <span class="fw-bold text-primary fs-4">4</span>
+                </div>
+                <h5 class="fw-bold">Win Big</h5>
+                <p class="text-muted small">Get evaluated and win prizes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA SECTION -->
+<div class="text-center py-5 animate-up delay-3">
+    <h2 class="fw-bold mb-3">Ready to start building?</h2>
+    <p class="mb-4 text-muted">Join thousands of students and developers today.</p>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-5 shadow-lg hover-scale">Create Free Account</a>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Admin Dashboard</h2>
+        <p class="text-muted">Manage hackathons and system settings</p>
+    </div>
+    <a href="{{ url_for('admin.create_hackathon') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>Create Hackathon
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Your Hackathons</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent; --bs-table-hover-bg: rgba(255,255,255,0.3);">
+                <thead style="background: rgba(255,255,255,0.4); border-bottom: 1px solid var(--border-glass);">
+                    <tr>
+                        <th class="ps-4">Name</th>
+                        <th>Status</th>
+                        <th>Start Date</th>
+                        <th>Stats</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hackathon in hackathons %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ hackathon.name }}</td>
+                        <td>
+                            {% if hackathon.status.name == 'REGISTRATION_OPEN' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Open</span>
+                            {% elif hackathon.status.name == 'DRAFT' %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Draft</span>
+                            {% else %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">{{ hackathon.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ hackathon.start_date.strftime('%Y-%m-%d %H:%M') if hackathon.start_date else 'N/A' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-white text-dark border border-opacity-25">
+                                    <i class="bi bi-people-fill me-1"></i> {{ stats[hackathon.id].teams }} Teams
+                                </span>
+                                <span class="badge bg-white text-dark border border-opacity-25">
+                                    <i class="bi bi-layers-fill me-1"></i> {{ stats[hackathon.id].stages }} Stages
+                                </span>
+                            </div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('admin.manage_hackathon', id=hackathon.id) }}" class="btn btn-sm btn-outline-primary" style="background: rgba(255,255,255,0.5);">
+                                Manage <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-emoji-frown fs-4 d-block mb-2"></i>
+                            No hackathons found. Create one to get started.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

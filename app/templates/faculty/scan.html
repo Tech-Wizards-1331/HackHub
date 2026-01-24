@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Scan QR Code</h2>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" id="scanForm">
+                    <div class="mb-3">
+                        <label class="form-label">Scan Type</label>
+                        <select name="scan_type" class="form-select">
+                            <option value="REGISTRATION">Registration (Check-in)</option>
+                            <option value="MEAL">Meal</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">QR Data</label>
+                        <input type="text" name="qr_data" class="form-control" autofocus required placeholder="Click here and scan...">
+                        <div class="form-text">Place cursor here and use USB Scanner or type code.</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Submit Scan</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Register for {{ hackathon.name }}</h2>
+<p>{{ hackathon.description }}</p>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">Create a Team</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="create_team">
+                    <div class="mb-3">
+                        <label>Team Name</label>
+                        <input type="text" name="team_name" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create & Register</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">Join Existing Team</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="join_team">
+                    <div class="mb-3">
+                        <label>Access Code</label>
+                        <input type="text" name="access_code" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Join Team</button>
+                </form>
+                <small class="text-muted">Ask your Team Leader for the Access Code.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

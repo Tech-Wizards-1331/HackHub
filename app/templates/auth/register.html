@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row min-vh-70 align-items-center justify-content-center">
+    <div class="col-lg-10">
+        <div class="card overflow-hidden border-0 shadow-lg" style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px);">
+            <div class="row g-0">
+                 <!-- Right Side: Form (Flipped for Register) -->
+                 <div class="col-lg-7 p-5 order-2 order-lg-1">
+                    <div class="d-flex align-items-center mb-4">
+                        <i class="bi bi-person-plus text-primary fs-3 me-2"></i>
+                        <h3 class="fw-bold m-0">Create Account</h3>
+                    </div>
+
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Username</label>
+                                <input type="text" name="username" class="form-control" placeholder="jdoe" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Full Name</label>
+                                <input type="text" name="full_name" class="form-control" placeholder="John Doe" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Email Address</label>
+                            <input type="email" name="email" class="form-control" placeholder="john@example.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">I am a...</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check card-radio flex-fill">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleParticipant" value="participant" checked>
+                                    <label class="card p-3 text-center cursor-pointer border user-select-none h-100" for="roleParticipant">
+                                        <i class="bi bi-code-slash fs-4 mb-2 text-primary d-block"></i>
+                                        <span class="fw-bold d-block">Participant</span>
+                                    </label>
+                                </div>
+                                <div class="form-check card-radio flex-fill">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleFaculty" value="faculty">
+                                    <label class="card p-3 text-center cursor-pointer border user-select-none h-100" for="roleFaculty">
+                                        <i class="bi bi-easel fs-4 mb-2 text-success d-block"></i>
+                                        <span class="fw-bold d-block">Faculty</span>
+                                    </label>
+                                </div>
+                                <div class="form-check card-radio flex-fill">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleAdmin" value="admin">
+                                    <label class="card p-3 text-center cursor-pointer border user-select-none h-100" for="roleAdmin">
+                                        <i class="bi bi-shield-lock fs-4 mb-2 text-danger d-block"></i>
+                                        <span class="fw-bold d-block">Admin</span>
+                                    </label>
+                                </div>
+                            </div>
+                             <style>
+                                .card-radio input:checked + label {
+                                    background-color: rgba(79, 70, 229, 0.05);
+                                    border-color: var(--primary-color) !important;
+                                    color: var(--primary-color);
+                                }
+                            </style>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Password</label>
+                            <input type="password" name="password" class="form-control" placeholder="Create a strong password" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 btn-lg mb-3 shadow-sm">
+                            Get Started <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                        
+                         <div class="text-center">
+                            <small class="text-muted">Already have an account? <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-bold">Login</a></small>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Left Side: Visuals (On right for register) -->
+                <div class="col-lg-5 d-none d-lg-flex flex-column align-items-center justify-content-center p-5 text-center text-white position-relative overflow-hidden order-1 order-lg-2" style="background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);">
+                     <div style="position: absolute; width: 300px; height: 300px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); top: -50px; right: -50px;"></div>
+                     <div class="position-relative z-1">
+                        <i class="bi bi-rocket-takeoff-fill display-1 mb-3 text-white-50"></i>
+                        <h2 class="fw-bold mb-2">Join the Future</h2>
+                        <p class="mb-4 text-white-50">Sign up today and start building amazing projects with teams from around the world.</p>
+                        <ul class="list-unstyled text-start d-inline-block">
+                            <li class="mb-2"><i class="bi bi-check-circle-fill me-2 text-white"></i> Participate in top hackathons</li>
+                            <li class="mb-2"><i class="bi bi-check-circle-fill me-2 text-white"></i> Build your developer portfolio</li>
+                            <li class="mb-2"><i class="bi bi-check-circle-fill me-2 text-white"></i> Win cash prizes & swag</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

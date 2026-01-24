@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Team: {{ team.name }} <span class="badge bg-info">{{ team.hackathon.name }}</span></h2>
+<div class="alert alert-secondary">
+    Access Code: <strong>{{ team.access_code }}</strong> (Share this to invite members)
+</div>
+
+<div class="card">
+    <div class="card-header">Members</div>
+    <ul class="list-group list-group-flush">
+        {% for member in team.members %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ member.user.username }} ({{ member.user.full_name }})
+            <div>
+                <span class="badge {{ 'bg-success' if member.status == 'accepted' else 'bg-warning' }}">{{ member.status }}</span>
+                {% if team.leader_id == session.user_id and member.user_id != session.user_id %}
+                    {% if member.status == 'pending' %}
+                        <a href="{{ url_for('participant.manage_member', team_id=team.id, member_id=member.id, action='accept') }}" class="btn btn-sm btn-success">Accept</a>
+                    {% endif %}
+                    <a href="{{ url_for('participant.manage_member', team_id=team.id, member_id=member.id, action='reject') }}" class="btn btn-sm btn-danger">Kick</a>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% if team.hackathon.status.name == 'PROBLEM_SELECTION' %}
+    <div class="card mt-4">
+        <div class="card-header bg-warning">Problem Statement Selection</div>
+        <div class="card-body">
+            {% if team.problem_statement %}
+                <div class="alert alert-success">
+                    Selected: <strong>{{ team.problem_statement.title }}</strong>
+                </div>
+            {% elif team.leader_id == session.user_id %}
+                <p>Please select a problem statement for your team.</p>
+                <div class="list-group">
+                {% for problem in team.hackathon.problem_statements %}
+                    {% set count = problem.teams|length %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">{{ problem.title }}</h5>
+                            <small class="text-muted">Filled: {{ count }} / {{ problem.max_team_limit }}</small>
+                            <br>
+                            <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="text-decoration-none">View PDF</a>
+                        </div>
+                        
+                        {% if count < problem.max_team_limit %}
+                        <form action="{{ url_for('participant.select_problem', hackathon_id=team.hackathon.id) }}" method="POST">
+                            <input type="hidden" name="problem_id" value="{{ problem.id }}">
+                            <button type="submit" class="btn btn-primary">Select</button>
+                        </form>
+                        {% else %}
+                        <button disabled class="btn btn-secondary">Full</button>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">Waiting for Team Leader to select a problem statement.</div>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+{% if team.problem_statement and team.hackathon.status.name != 'PROBLEM_SELECTION' %}
+    <div class="card mt-4">
+        <div class="card-header">Your Problem Statement</div>
+        <div class="card-body">
+            <h4>{{ team.problem_statement.title }}</h4>
+            <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="btn btn-outline-primary">View PDF</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

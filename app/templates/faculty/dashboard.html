@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h2 class="fw-bold text-gradient">Faculty Dashboard</h2>
+        <p class="text-muted">Manage events and evaluate teams</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Quick Actions Card -->
+    <div class="col-md-5 col-lg-4">
+        <div class="card h-100 text-center p-4">
+            <div class="card-body">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-qr-code-scan fs-1"></i>
+                </div>
+                <h4 class="fw-bold mb-2">QR Scanner</h4>
+                <p class="text-muted mb-4 small">Scan participant QR codes for quick registration, attendance, and meal tracking.</p>
+                <a href="{{ url_for('faculty.scan_qr') }}" class="btn btn-primary w-100 rounded-pill shadow-sm">
+                    <i class="bi bi-camera-fill me-2"></i>Launch Scanner
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignments Card -->
+    <div class="col-md-7 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-clipboard-check me-2"></i>Assigned Evaluations</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if hackathons %}
+                <div class="list-group list-group-flush bg-transparent">
+                    {% for h in hackathons %}
+                    <div class="list-group-item p-3 bg-transparent border-bottom border-light d-flex align-items-center justify-content-between gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-primary bg-opacity-10 text-primary rounded p-2 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <i class="bi bi-trophy-fill fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold">{{ h.name }}</h6>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill mt-1">
+                                    {{ h.status.value }}
+                                </span>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('faculty.evaluate_teams_list', hackathon_id=h.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                            Evaluate <i class="bi bi-chevron-right ms-1"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center p-5 text-muted">
+                    <i class="bi bi-clipboard-x fs-1 opacity-25 d-block mb-3"></i>
+                    <p>No hackathons assigned for evaluation yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
