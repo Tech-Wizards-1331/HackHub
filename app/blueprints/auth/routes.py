@@ -21,8 +21,32 @@ def register():
             role = UserRole[role_str]
         except KeyError:
             role = UserRole.PARTICIPANT
+        
+        # Extract and validate skills for participants
+        skills_str = None
+        if role == UserRole.PARTICIPANT:
+            # Get selected predefined skills
+            selected_skills = request.form.getlist('skills')
             
-        user = User(username=username, email=email, role=role, full_name=full_name)
+            # Get custom skills
+            custom_skills = request.form.get('custom_skills', '').strip()
+            
+            # Combine all skills
+            all_skills = selected_skills.copy()
+            if custom_skills:
+                # Split by comma and clean up
+                custom_list = [s.strip() for s in custom_skills.split(',') if s.strip()]
+                all_skills.extend(custom_list)
+            
+            # Validate at least one skill is provided
+            if not all_skills:
+                flash('Participants must provide at least one technical skill', 'error')
+                return redirect(url_for('auth.register'))
+            
+            # Store as comma-separated string
+            skills_str = ', '.join(all_skills)
+            
+        user = User(username=username, email=email, role=role, full_name=full_name, skills=skills_str)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
