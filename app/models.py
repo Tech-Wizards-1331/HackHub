@@ -31,6 +31,7 @@ class User(db.Model):
     skills = db.Column(db.Text) # Comma separated or JSON
     experience_level = db.Column(db.String(50))
     college = db.Column(db.String(100))
+    is_public = db.Column(db.Boolean, default=False)
     
     # QR Code
     registration_qr = db.Column(db.String(200)) # Path or string data
@@ -85,7 +86,6 @@ class Team(db.Model):
     hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
     leader_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    access_code = db.Column(db.String(20), unique=True) # For joining
     is_closed = db.Column(db.Boolean, default=False)
     problem_statement_id = db.Column(db.Integer, db.ForeignKey('problem_statements.id'), nullable=True)
     
@@ -97,7 +97,6 @@ class TeamMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='pending') # pending, accepted
     
     user = db.relationship('User', backref='team_memberships')
 

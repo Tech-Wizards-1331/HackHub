@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Team: {{ team.name }} <span class="badge bg-info">{{ team.hackathon.name }}</span></h2>
-<div class="alert alert-secondary">
-    Access Code: <strong>{{ team.access_code }}</strong> (Share this to invite members)
+
+{% if team.leader_id == session.user_id and team.hackathon.status.name == 'REGISTRATION_OPEN' %}
+<div class="alert alert-info">
+    <button class="btn btn-primary" onclick="window.location.href='{{ url_for('participant.find_members', hackathon_id=team.hackathon_id, team_id=team.id) }}'">Find Members</button>
+    <small class="text-muted ms-2">Add solo participants to your team</small>
 </div>
+{% endif %}
 
 <div class="card">
     <div class="card-header">Members</div>
@@ -12,12 +16,9 @@
         <li class="list-group-item d-flex justify-content-between align-items-center">
             {{ member.user.username }} ({{ member.user.full_name }})
             <div>
-                <span class="badge {{ 'bg-success' if member.status == 'accepted' else 'bg-warning' }}">{{ member.status }}</span>
+                <span class="badge bg-success">Member</span>
                 {% if team.leader_id == session.user_id and member.user_id != session.user_id %}
-                    {% if member.status == 'pending' %}
-                        <a href="{{ url_for('participant.manage_member', team_id=team.id, member_id=member.id, action='accept') }}" class="btn btn-sm btn-success">Accept</a>
-                    {% endif %}
-                    <a href="{{ url_for('participant.manage_member', team_id=team.id, member_id=member.id, action='reject') }}" class="btn btn-sm btn-danger">Kick</a>
+                    <a href="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="btn btn-sm btn-danger">Remove</a>
                 {% endif %}
             </div>
         </li>

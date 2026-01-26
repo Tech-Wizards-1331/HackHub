@@ -1,28 +1,90 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Find Teams for {{ hackathon.name }}</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Team Name</th>
-            <th>Members Count</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for team in teams %}
-        <tr>
-            <td>{{ team.name }}</td>
-            <td>{{ team.members|length }}</td>
-            <td>
-                <!-- To join, they need the access code officially, or Request to Join via button -->
-                <!-- For simplicity in this demo, we'll just show the team exists and suggest contacting -->
-                <button class="btn btn-sm btn-outline-info" disabled>Contact Leader</button>
-            </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="3">No open teams found. Create one!</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<h2>Find Members for Team: {{ team.name }}</h2>
+<p class="text-muted">Hackathon: {{ hackathon.name }}</p>
+
+<div class="mb-3">
+    <label class="form-label">Filter by Skills</label>
+    <input type="text" id="skillFilter" class="form-control" placeholder="Enter skills (e.g., Frontend, Backend, AI)">
+    <button class="btn btn-primary mt-2" onclick="loadParticipants()">Search</button>
+    <button class="btn btn-secondary mt-2" onclick="document.getElementById('skillFilter').value=''; loadParticipants()">Clear</button>
+</div>
+
+<div id="participantsList">
+    <div class="text-center p-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+
+<script>
+const hackathonId = {{ hackathon.id }};
+const teamId = {{ team.id }};
+
+function loadParticipants() {
+    const skillFilter = document.getElementById('skillFilter').value;
+    const url = `/api/hackathon/${hackathonId}/solo_participants?skills=${encodeURIComponent(skillFilter)}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('participantsList');
+            
+            if (data.participants && data.participants.length > 0) {
+                let html = '<div class="list-group">';
+                data.participants.forEach(p => {
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${p.full_name || p.username}</h6>
+                                    <p class="mb-1"><strong>Skills:</strong> ${p.skills || 'Not specified'}</p>
+                                    <small class="text-muted">Experience: ${p.experience_level || 'N/A'} | ${p.college || 'N/A'}</small>
+                                </div>
+                                <button class="btn btn-success" onclick="addToTeam(${p.id}, '${p.full_name || p.username}')">Add to Team</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-info">No solo participants found matching your criteria.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('participantsList').innerHTML = '<div class="alert alert-danger">Error loading participants</div>';
+        });
+}
+
+function addToTeam(participantId, name) {
+    if (!confirm(`Add ${name} to your team?`)) return;
+    
+    fetch(`/api/hackathon/${hackathonId}/team/${teamId}/add_member`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ participant_id: participantId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Member added successfully!');
+            loadParticipants(); // Refresh list
+        } else {
+            alert('Error: ' + (data.error || 'Failed to add member'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding member');
+    });
+}
+
+// Load on page load
+loadParticipants();
+</script>
 {% endblock %}

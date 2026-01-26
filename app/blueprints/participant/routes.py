@@ -44,29 +44,16 @@ def register_hackathon(hackathon_id):
         
         if action == 'create_team':
             team_name = request.form.get('team_name')
-            access_code = str(uuid.uuid4())[:8]
-            team = Team(name=team_name, hackathon_id=hackathon.id, leader_id=user_id, access_code=access_code)
+            team = Team(name=team_name, hackathon_id=hackathon.id, leader_id=user_id)
             db.session.add(team)
             db.session.commit()
             
-            member = TeamMember(team_id=team.id, user_id=user_id, status='accepted')
+            member = TeamMember(team_id=team.id, user_id=user_id)
             db.session.add(member)
             db.session.commit()
             
-            flash(f"Team created! Access Code: {access_code}")
+            flash(f"Team created successfully!")
             return redirect(url_for('participant.dashboard'))
-            
-        elif action == 'join_team':
-            access_code = request.form.get('access_code')
-            team = Team.query.filter_by(access_code=access_code, hackathon_id=hackathon.id).first()
-            if team:
-                member = TeamMember(team_id=team.id, user_id=user_id, status='pending')
-                db.session.add(member)
-                db.session.commit()
-                flash("Join request sent")
-                return redirect(url_for('participant.dashboard'))
-            else:
-                flash("Invalid access code")
                 
     return render_template('participant/hackathon_register.html', hackathon=hackathon)
 
@@ -82,19 +69,18 @@ def view_team(team_id):
         
     return render_template('participant/team_view.html', team=team)
 
-@participant_bp.route('/team/<int:team_id>/member/<int:member_id>/<action>')
+@participant_bp.route('/team/<int:team_id>/member/<int:member_id>/remove')
 @participant_required
-def manage_member(team_id, member_id, action):
+def remove_member(team_id, member_id):
     team = Team.query.get_or_404(team_id)
     if team.leader_id != session['user_id']:
         return "Unauthorized"
         
     member = TeamMember.query.get_or_404(member_id)
-    if action == 'accept':
-        member.status = 'accepted'
-    elif action == 'reject':
-        db.session.delete(member)
-        
+    user = User.query.get(member.user_id)
+    if user:
+        user.is_public = False
+    db.session.delete(member)
     db.session.commit()
     return redirect(url_for('participant.view_team', team_id=team.id))
 
@@ -105,3 +91,37 @@ def find_teams(hackathon_id):
     # Logic: Show teams that are not closed
     teams = Team.query.filter_by(hackathon_id=hackathon_id, is_closed=False).all()
     return render_template('participant/team_find.html', hackathon=hackathon, teams=teams)
+
+@participant_bp.route('/hackathon/<int:hackathon_id>/team/<int:team_id>/find_members')
+@participant_required
+def find_members(hackathon_id, team_id):
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+    team = Team.query.get_or_404(team_id)
+    
+    # Security: only team leader
+    if team.leader_id != session['user_id']:
+        flash('Only team leader can find members')
+        return redirect(url_for('participant.view_team', team_id=team_id))
+    
+    return render_template('participant/team_find.html', hackathon=hackathon, team=team)
+
+@participant_bp.route('/hackathon/<int:hackathon_id>/solo_register', methods=['POST'])
+@participant_required
+def solo_register(hackathon_id):
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+    user_id = session['user_id']
+    user = User.query.get_or_404(user_id)
+    
+    # Check if already in a team for this hackathon
+    existing = TeamMember.query.join(Team).filter(Team.hackathon_id==hackathon_id, TeamMember.user_id==user_id).first()
+    if existing:
+        return {'error': 'Already in a team'}, 400
+    
+    skills = request.form.get('skills', '')
+    user.skills = skills
+    user.is_public = True
+    
+    db.session.commit()
+    
+    flash('Profile updated. You are now visible to team leaders.')
+    return redirect(url_for('participant.dashboard'))

@@ -22,19 +22,82 @@
     
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header bg-success text-white">Join Existing Team</div>
+            <div class="card-header bg-success text-white">Looking for Team</div>
             <div class="card-body">
-                <form method="POST">
-                    <input type="hidden" name="action" value="join_team">
-                    <div class="mb-3">
-                        <label>Access Code</label>
-                        <input type="text" name="access_code" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-success">Join Team</button>
-                </form>
-                <small class="text-muted">Ask your Team Leader for the Access Code.</small>
+                <p class="text-muted">Make yourself visible to team leaders</p>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#soloModal">
+                    Find Team
+                </button>
+                <small class="d-block mt-2 text-muted">Team leaders can directly add you to their team</small>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Solo Registration Modal -->
+<div class="modal fade" id="soloModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Your Skills</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('participant.solo_register', hackathon_id=hackathon.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Your Skills</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="Frontend" id="skill1">
+                            <label class="form-check-label" for="skill1">Frontend</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="Backend" id="skill2">
+                            <label class="form-check-label" for="skill2">Backend</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="AI/ML" id="skill3">
+                            <label class="form-check-label" for="skill3">AI/ML</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="Design" id="skill4">
+                            <label class="form-check-label" for="skill4">Design</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="DevOps" id="skill5">
+                            <label class="form-check-label" for="skill5">DevOps</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skills" value="Mobile" id="skill6">
+                            <label class="form-check-label" for="skill6">Mobile</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save & Become Visible</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const form = document.querySelector('#soloModal form');
+if (form) {
+    form.addEventListener('submit', function(e) {
+        const checkboxes = form.querySelectorAll('input[name="skills"]:checked');
+        const skills = Array.from(checkboxes).map(cb => cb.value).join(', ');
+        
+        // Remove all checkboxes and add single input
+        const skillsInput = document.createElement('input');
+        skillsInput.type = 'hidden';
+        skillsInput.name = 'skills';
+        skillsInput.value = skills;
+        form.appendChild(skillsInput);
+        
+        // Remove checkboxes from submission
+        checkboxes.forEach(cb => cb.disabled = true);
+    });
+}
+</script>
 {% endblock %}
