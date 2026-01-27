@@ -58,7 +58,11 @@ class Hackathon(db.Model):
     min_team_size = db.Column(db.Integer, default=1)
     max_team_size = db.Column(db.Integer, default=4)
     
-    stages = db.relationship('Stage', backref='hackathon', lazy=True)
+    # Meal Config
+    enable_breakfast = db.Column(db.Boolean, default=False)
+    enable_lunch = db.Column(db.Boolean, default=False)
+    enable_dinner = db.Column(db.Boolean, default=False)
+    
     teams = db.relationship('Team', backref='hackathon', lazy=True)
     problem_statements = db.relationship('ProblemStatement', backref='hackathon', lazy=True)
 
@@ -71,15 +75,14 @@ class ProblemStatement(db.Model):
     max_team_limit = db.Column(db.Integer, default=50) # Just in case limit per problem is needed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class Stage(db.Model):
-    __tablename__ = 'stages'
+class EvaluationCriteria(db.Model):
+    __tablename__ = 'evaluation_criteria'
     id = db.Column(db.Integer, primary_key=True)
     hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    weightage = db.Column(db.Float, nullable=False) # e.g. 30.0 for 30%
-    order_index = db.Column(db.Integer, default=0)
-    
+    percentage = db.Column(db.Float, nullable=False)
+    is_enabled = db.Column(db.Boolean, default=False)
+
 class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key=True)
@@ -103,17 +106,33 @@ class TeamMember(db.Model):
 class Evaluation(db.Model):
     __tablename__ = 'evaluations'
     id = db.Column(db.Integer, primary_key=True)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
     faculty_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    stage_id = db.Column(db.Integer, db.ForeignKey('stages.id'), nullable=False)
-    score = db.Column(db.Float, nullable=False)
-    comments = db.Column(db.Text)
+    
+    innovation_score = db.Column(db.Integer, nullable=True) # made nullable to support flexible criteria
+    technical_score = db.Column(db.Integer, nullable=True)
+    uiux_score = db.Column(db.Integer, nullable=True)
+    practicality_score = db.Column(db.Integer, nullable=True)
+    presentation_score = db.Column(db.Integer, nullable=True) # Added new field
+    total_score = db.Column(db.Float, nullable=False) # Changed to float for weighted calc
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'faculty_id', name='uq_team_faculty_evaluation'),
+    )
 
 class FacultyAssignment(db.Model):
     __tablename__ = 'faculty_assignments'
     id = db.Column(db.Integer, primary_key=True)
     hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
     faculty_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('hackathon_id', 'faculty_id', name='uq_hackathon_faculty_assignment'),
+    )
 
 class QRLog(db.Model):
     __tablename__ = 'qr_logs'
@@ -123,3 +142,28 @@ class QRLog(db.Model):
     scan_type = db.Column(db.String(20), nullable=False) # REGISTRATION, MEAL
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     details = db.Column(db.String(200))
+
+class TeamQR(db.Model):
+    __tablename__ = 'team_qrs'
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    qr_token = db.Column(db.String(100), unique=True, nullable=False)
+    qr_type = db.Column(db.String(20), nullable=False) # 'ACCESS', 'DINNER'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'qr_type', name='uq_team_qr_type'),
+    )
+
+class TeamMealUsage(db.Model):
+    __tablename__ = 'team_meal_usage'
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    meal_type = db.Column(db.String(20), nullable=False) # 'DINNER', 'LUNCH', 'BREAKFAST'
+    used_count = db.Column(db.Integer, default=0)
+    usage_date = db.Column(db.Date, nullable=False, default=datetime.utcnow().date)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'meal_type', 'usage_date', name='uq_team_meal_daily_usage'),
+    )

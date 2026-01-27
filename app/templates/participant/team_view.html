@@ -26,36 +26,147 @@
     </ul>
 </div>
 
+{% if team.leader_id == session.user_id %}
+    <div class="card mt-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-qr-code-scan me-2"></i>Team QR Codes</span>
+            <button class="btn btn-sm btn-light text-primary" onclick="fetchTeamQRs()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="qr-loading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading QR Codes...</p>
+            </div>
+            
+            <div id="qr-display" class="row g-4 d-none">
+                <!-- Populated by JS -->
+            </div>
+            
+            <div id="qr-error" class="alert alert-danger d-none mt-3"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchTeamQRs();
+        });
+
+        function fetchTeamQRs() {
+            const container = document.getElementById('qr-display');
+            const loading = document.getElementById('qr-loading');
+            const errorDiv = document.getElementById('qr-error');
+            
+            loading.classList.remove('d-none');
+            container.classList.add('d-none');
+            errorDiv.classList.add('d-none');
+            // Clear previous
+            container.innerHTML = '';
+
+            fetch('{{ url_for("participant.get_team_qrs", team_id=team.id) }}')
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to load QRs");
+                    return response.json();
+                })
+                .then(data => {
+                    loading.classList.add('d-none');
+                    
+                    if (data.status === 'success' && data.qrs.length > 0) {
+                        container.classList.remove('d-none');
+                        
+                        data.qrs.forEach(qr => {
+                            const col = document.createElement('div');
+                            col.className = 'col-md-6 col-lg-4 text-center';
+                            
+                            const card = document.createElement('div');
+                            card.className = 'card h-100 shadow-sm';
+                            
+                            // Visual distinction
+                            let headerClass = 'bg-secondary text-white';
+                            let icon = 'bi-qr-code';
+                            
+                            switch(qr.type) {
+                                case 'ACCESS': 
+                                    headerClass = 'bg-success text-white'; 
+                                    icon = 'bi-pass-fill';
+                                    break;
+                                case 'BREAKFAST':
+                                    headerClass = 'bg-warning text-dark';
+                                    icon = 'bi-cup-hot-fill';
+                                    break;
+                                case 'LUNCH':
+                                    headerClass = 'bg-info text-dark';
+                                    icon = 'bi-sun-fill';
+                                    break;
+                                case 'DINNER':
+                                    headerClass = 'bg-danger text-white';
+                                    icon = 'bi-moon-stars-fill';
+                                    break;
+                            }
+                            
+                            card.innerHTML = `
+                                <div class="card-header ${headerClass} fw-bold">
+                                    <i class="bi ${icon} me-2"></i> ${qr.type}
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3 d-flex align-items-center justify-content-center bg-light rounded p-2" style="min-height: 220px;">
+                                        <img src="${qr.url}" alt="${qr.type} QR" class="img-fluid" style="max-height: 200px;">
+                                    </div>
+                                    <a href="${qr.url}" download="${qr.download_name}" class="btn btn-outline-dark w-100">
+                                        <i class="bi bi-download me-2"></i>Download
+                                    </a>
+                                </div>
+                            `;
+                            
+                            col.appendChild(card);
+                            container.appendChild(col);
+                        });
+                    } else {
+                        errorDiv.textContent = "No QRs found for this team.";
+                        errorDiv.classList.remove('d-none');
+                    }
+                })
+                .catch(err => {
+                    loading.classList.add('d-none');
+                    errorDiv.textContent = err.message || "Error loading QR codes";
+                    errorDiv.classList.remove('d-none');
+                });
+        }
+    </script>
+{% endif %}
+
 {% if team.hackathon.status.name == 'PROBLEM_SELECTION' %}
     <div class="card mt-4">
         <div class="card-header bg-warning">Problem Statement Selection</div>
         <div class="card-body">
             {% if team.problem_statement %}
                 <div class="alert alert-success">
-                    Selected: <strong>{{ team.problem_statement.title }}</strong>
+                    <h5 class="alert-heading">Selected: {{ team.problem_statement.title }}</h5>
+                    <p>Your team has committed to this problem statement.</p>
+                    <hr>
+                    <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="btn btn-outline-success">View PDF</a>
                 </div>
             {% elif team.leader_id == session.user_id %}
                 <p>Please select a problem statement for your team.</p>
                 <div class="list-group">
-                {% for problem in team.hackathon.problem_statements %}
-                    {% set count = problem.teams|length %}
+                {# Use available_problems passed from route #}
+                {% for problem in available_problems %}
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <h5 class="mb-1">{{ problem.title }}</h5>
-                            <small class="text-muted">Filled: {{ count }} / {{ problem.max_team_limit }}</small>
-                            <br>
                             <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="text-decoration-none">View PDF</a>
                         </div>
                         
-                        {% if count < problem.max_team_limit %}
                         <form action="{{ url_for('participant.select_problem', hackathon_id=team.hackathon.id) }}" method="POST">
                             <input type="hidden" name="problem_id" value="{{ problem.id }}">
                             <button type="submit" class="btn btn-primary">Select</button>
                         </form>
-                        {% else %}
-                        <button disabled class="btn btn-secondary">Full</button>
-                        {% endif %}
                     </div>
+                {% else %}
+                    <div class="alert alert-secondary">No available problem statements found.</div>
                 {% endfor %}
                 </div>
             {% else %}

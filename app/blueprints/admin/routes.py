@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, session, current_app
 from . import admin_bp
 from app.extensions import db
-from app.models import Hackathon, HackathonStatus, Stage, ProblemStatement
+from app.models import Hackathon, HackathonStatus, ProblemStatement, Evaluation, EvaluationCriteria, User, UserRole, FacultyAssignment
 from app.utils.problem_selection import auto_assign_problems
 from functools import wraps
 from datetime import datetime
@@ -29,8 +29,7 @@ def dashboard():
     stats = {}
     for h in hackathons:
         stats[h.id] = {
-            'teams': len(h.teams),
-            'stages': len(h.stages)
+            'teams': len(h.teams)
         }
     return render_template('admin/dashboard.html', hackathons=hackathons, stats=stats)
 
@@ -45,13 +44,21 @@ def create_hackathon():
         max_team_size = request.form.get('max_team_size')
         start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
         
+        # Meal Config
+        enable_breakfast = 'enable_breakfast' in request.form
+        enable_lunch = 'enable_lunch' in request.form
+        enable_dinner = 'enable_dinner' in request.form
+        
         hackathon = Hackathon(
             name=name, 
             description=description,
             max_teams=max_teams,
             min_team_size=min_team_size,
             max_team_size=max_team_size,
-            start_date=start_date
+            start_date=start_date,
+            enable_breakfast=enable_breakfast,
+            enable_lunch=enable_lunch,
+            enable_dinner=enable_dinner
         )
         db.session.add(hackathon)
         db.session.commit()
@@ -74,25 +81,27 @@ def manage_hackathon(id):
                 flash(f"Auto-assign complete. Assigned {result['assigned']} teams.", 'success')
             else:
                 flash(f"Auto-assign failed: {result['message']}", 'error')
-                
+        
+        elif action == 'update_meals':
+            hackathon.enable_breakfast = 'enable_breakfast' in request.form
+            hackathon.enable_lunch = 'enable_lunch' in request.form
+            hackathon.enable_dinner = 'enable_dinner' in request.form
+            db.session.commit()
+            flash('Meal configuration updated', 'success')
+
         elif status_str:
             hackathon.status = HackathonStatus[status_str]
             db.session.commit()
             flash('Status updated')
+    
+    # Fetch current criteria configuration
+    current_criteria = EvaluationCriteria.query.filter_by(hackathon_id=id).all()
+    # Convert to dictionary for easy lookup in template: {'Innovation': 30, ...}
+    criteria_map = {c.name: c.percentage for c in current_criteria if c.is_enabled}
             
-    return render_template('admin/hackathon_manage.html', hackathon=hackathon, HackathonStatus=HackathonStatus)
+    return render_template('admin/hackathon_manage.html', hackathon=hackathon, HackathonStatus=HackathonStatus, criteria_map=criteria_map)
 
 @admin_bp.route('/hackathon/<int:id>/add_stage', methods=['POST'])
-@admin_required
-def add_stage(id):
-    name = request.form.get('name')
-    weightage = float(request.form.get('weightage'))
-    
-    stage = Stage(hackathon_id=id, name=name, weightage=weightage)
-    db.session.add(stage)
-    db.session.commit()
-    return redirect(url_for('admin.manage_hackathon', id=id))
-
 @admin_bp.route('/hackathon/<int:id>/problems/upload', methods=['POST'])
 @admin_required
 def upload_problem_statement(id):
@@ -140,3 +149,164 @@ def upload_problem_statement(id):
         flash('Invalid file type. Only PDF allowed.')
         
     return redirect(url_for('admin.manage_hackathon', id=id))
+
+@admin_bp.route('/results/<int:hackathon_id>', methods=['GET', 'POST'])
+@admin_required
+def results(hackathon_id):
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+
+    if request.method == 'POST':
+        hackathon.status = HackathonStatus.RESULT_PUBLISHED
+        db.session.commit()
+        flash("Results published successfully. Evaluations locked.", "success")
+        return redirect(url_for('admin.results', hackathon_id=hackathon.id))
+        
+    teams = hackathon.teams
+    results_data = []
+    
+    for team in teams:
+        evals = Evaluation.query.filter_by(team_id=team.id).all()
+        if evals:
+            # Average of all faculty total_scores
+            avg_score = sum(e.total_score for e in evals) / len(evals)
+        else:
+            avg_score = 0
+            
+        results_data.append({
+            'team_id': team.id,
+            'name': team.name,
+            'score': round(avg_score, 2)
+        })
+        
+    results_data.sort(key=lambda x: x['score'], reverse=True)
+    
+    return render_template('admin/results.html', hackathon=hackathon, results=results_data)
+
+@admin_bp.route('/evaluation-config/<int:hackathon_id>', methods=['POST'])
+@admin_required
+def evaluation_config(hackathon_id):
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+    
+    data = request.get_json()
+    if not data:
+        return {'status': 'error', 'message': 'Invalid JSON Payload'}, 400
+        
+    valid_names = ['Innovation', 'Technical Skills', 'UI/UX', 'Practical Use', 'Presentation']
+    new_criteria = []
+    total_percentage = 0.0
+    
+    for item in data:
+        name = item.get('name')
+        if name not in valid_names:
+            continue
+            
+        try:
+            percentage = float(item.get('percentage', 0))
+            if percentage < 0 or percentage > 100:
+                raise ValueError
+        except:
+            return {'status': 'error', 'message': f'Invalid percentage for {name}'}, 400
+            
+        new_criteria.append({
+            'name': name,
+            'percentage': percentage,
+            'is_enabled': True
+        })
+        total_percentage += percentage
+            
+    if abs(total_percentage - 100.0) > 0.01:
+        return {'status': 'error', 'message': f'Total percentage must be exactly 100%. Current: {total_percentage}%'}, 400
+        
+    # Save config
+    EvaluationCriteria.query.filter_by(hackathon_id=hackathon_id).delete()
+    
+    for c in new_criteria:
+        crit = EvaluationCriteria(
+            hackathon_id=hackathon_id,
+            name=c['name'],
+            percentage=c['percentage'],
+            is_enabled=True
+        )
+        db.session.add(crit)
+        
+    db.session.commit()
+    return {'status': 'success', 'message': 'Configuration saved successfully.'}
+
+@admin_bp.route('/faculty', methods=['GET'])
+@admin_required
+def list_faculty():
+    # Returns list of all faculty
+    faculty_members = User.query.filter_by(role=UserRole.FACULTY).all()
+    return {
+        'faculty': [{
+            'id': f.id,
+            'name': f.full_name,
+            'email': f.email,
+            'college': f.college
+        } for f in faculty_members]
+    }
+
+@admin_bp.route('/hackathons/<int:hackathon_id>/assigned-faculty', methods=['GET'])
+@admin_required
+def get_assigned_faculty(hackathon_id):
+    # Returns faculty already assigned
+    assignments = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id).all()
+    assigned_data = []
+    for a in assignments:
+        faculty = User.query.get(a.faculty_id)
+        if faculty:
+            assigned_data.append({
+                'id': faculty.id,
+                'name': faculty.full_name,
+                'email': faculty.email,
+                'assignment_id': a.id,
+                'assigned_at': a.assigned_at.isoformat() if a.assigned_at else None
+            })
+    return {'assigned_faculty': assigned_data}
+
+@admin_bp.route('/hackathons/<int:hackathon_id>/assign-faculty', methods=['POST'])
+@admin_required
+def assign_faculty(hackathon_id):
+    # Body: faculty_id
+    # Assign faculty to hackathon
+    data = request.get_json()
+    if not data or 'faculty_id' not in data:
+        return {'status': 'error', 'message': 'Missing faculty_id'}, 400
+        
+    try:
+        faculty_id = int(data.get('faculty_id'))
+    except (ValueError, TypeError):
+        return {'status': 'error', 'message': 'Invalid faculty_id format'}, 400
+
+    # Validation
+    hackathon = Hackathon.query.get(hackathon_id)
+    if not hackathon:
+        return {'status': 'error', 'message': 'Hackathon not found'}, 404
+        
+    faculty = User.query.get(faculty_id)
+    if not faculty or faculty.role != UserRole.FACULTY:
+        return {'status': 'error', 'message': 'Invalid faculty user'}, 400
+        
+    # Check duplicate
+    existing = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id, faculty_id=faculty_id).first()
+    if existing:
+        return {'status': 'error', 'message': 'Faculty already assigned to this hackathon'}, 400
+        
+    assignment = FacultyAssignment(hackathon_id=hackathon_id, faculty_id=faculty_id)
+    db.session.add(assignment)
+    db.session.commit()
+    
+    return {'status': 'success', 'message': 'Faculty assigned successfully'}
+
+@admin_bp.route('/hackathons/<int:hackathon_id>/remove-faculty/<int:faculty_id>', methods=['DELETE'])
+@admin_required
+def remove_faculty_assignment(hackathon_id, faculty_id):
+    # Unassign faculty
+    assignment = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id, faculty_id=faculty_id).first()
+    if not assignment:
+        return {'status': 'error', 'message': 'Assignment not found'}, 404
+        
+    db.session.delete(assignment)
+    db.session.commit()
+    
+    return {'status': 'success', 'message': 'Faculty unassigned successfully'}

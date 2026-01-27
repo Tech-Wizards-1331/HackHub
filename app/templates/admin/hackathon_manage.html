@@ -28,33 +28,171 @@
                 {% endif %}
             </div>
         </div>
-        
+
         <div class="card mb-4">
-            <div class="card-header">Stages</div>
+            <div class="card-header">Meal Configuration</div>
             <div class="card-body">
-                <ul class="list-group mb-3">
-                    {% for stage in hackathon.stages %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ stage.name }}
-                        <span class="badge bg-primary rounded-pill">{{ stage.weightage }}%</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-                
-                <h5>Add Stage</h5>
-                <form action="{{ url_for('admin.add_stage', id=hackathon.id) }}" method="POST" class="row g-3">
-                    <div class="col-auto">
-                        <input type="text" name="name" class="form-control" placeholder="Stage Name" required>
+                <form method="POST">
+                    <input type="hidden" name="action" value="update_meals">
+                    <div class="d-flex gap-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast" {% if hackathon.enable_breakfast %}checked{% endif %}>
+                            <label class="form-check-label" for="checkBreakfast">Breakfast QR</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch" {% if hackathon.enable_lunch %}checked{% endif %}>
+                            <label class="form-check-label" for="checkLunch">Lunch QR</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner" {% if hackathon.enable_dinner %}checked{% endif %}>
+                            <label class="form-check-label" for="checkDinner">Dinner QR</label>
+                        </div>
                     </div>
-                    <div class="col-auto">
-                        <input type="number" step="0.1" name="weightage" class="form-control" placeholder="Weightage %" required>
-                    </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-outline-primary">Add</button>
-                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">Update Meal Settings</button>
                 </form>
             </div>
         </div>
+        
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">Evaluation Configuration</span>
+                <span class="badge bg-secondary" id="totalPctBadge">Total: 0%</span>
+            </div>
+            <div class="card-body">
+                <div id="configAlert" class="alert d-none"></div>
+
+                <div class="mb-3">
+                    <p class="text-muted small mb-0">Select criteria to enable and assign weightage. Total must be exactly 100%.</p>
+                </div>
+
+                <form id="evalConfigForm">
+                    {% set all_criteria = ['Innovation', 'Technical Skills', 'UI/UX', 'Practical Use', 'Presentation'] %}
+                    
+                    {% for name in all_criteria %}
+                        {% set pct = criteria_map.get(name, 0) %}
+                        {% set enabled = name in criteria_map %}
+                        
+                        <div class="input-group mb-2 align-items-center">
+                            <div class="input-group-text">
+                                <input class="form-check-input mt-0 criteria-check" type="checkbox" 
+                                       value="{{ name }}"
+                                       {% if enabled %}checked{% endif %}
+                                       aria-label="Checkbox for {{ name }}">
+                            </div>
+                            <span class="input-group-text flex-grow-1 bg-white">{{ name }}</span>
+                            <input type="number" class="form-control criteria-input" 
+                                   placeholder="0" min="0" max="100" 
+                                   value="{{ pct if enabled else '' }}"
+                                   {% if not enabled %}disabled{% endif %}
+                                   style="max-width: 100px;">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    {% endfor %}
+
+                    <button type="button" id="saveConfigBtn" class="btn btn-primary w-100 mt-3">Save Configuration</button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const checks = document.querySelectorAll('.criteria-check');
+                const inputs = document.querySelectorAll('.criteria-input');
+                const totalBadge = document.getElementById('totalPctBadge');
+                const saveBtn = document.getElementById('saveConfigBtn');
+                const alertBox = document.getElementById('configAlert');
+                const hackathonId = {{ hackathon.id }};
+
+                function calculateTotal() {
+                    let total = 0;
+                    inputs.forEach((input, index) => {
+                        if (checks[index].checked) {
+                            total += parseFloat(input.value || 0);
+                            input.disabled = false;
+                        } else {
+                            input.disabled = true;
+                            input.value = '';
+                        }
+                    });
+                    
+                    totalBadge.textContent = 'Total: ' + total + '%';
+                    if (Math.abs(total - 100) < 0.1) {
+                        totalBadge.classList.remove('bg-secondary', 'bg-danger');
+                        totalBadge.classList.add('bg-success');
+                    } else {
+                        totalBadge.classList.remove('bg-secondary', 'bg-success');
+                        totalBadge.classList.add('bg-danger');
+                    }
+                    return total;
+                }
+
+                checks.forEach(check => {
+                    check.addEventListener('change', calculateTotal);
+                });
+
+                inputs.forEach(input => {
+                    input.addEventListener('input', calculateTotal);
+                });
+
+                // Initial calc
+                calculateTotal();
+
+                saveBtn.addEventListener('click', function() {
+                    const payload = [];
+                    let total = 0;
+
+                    checks.forEach((check, index) => {
+                        if (check.checked) {
+                            const val = parseFloat(inputs[index].value || 0);
+                            total += val;
+                            payload.push({
+                                name: check.value,
+                                percentage: val
+                            });
+                        }
+                    });
+
+                    if (Math.abs(total - 100) > 0.1) {
+                        alertBox.className = 'alert alert-danger';
+                        alertBox.textContent = 'Total percentage must be exactly 100%. Current: ' + total + '%';
+                        alertBox.classList.remove('d-none');
+                        return;
+                    }
+
+                    saveBtn.disabled = true;
+                    saveBtn.textContent = 'Saving...';
+
+                    fetch('/admin/evaluation-config/' + hackathonId, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alertBox.className = 'alert alert-success';
+                            alertBox.textContent = data.message;
+                        } else {
+                            alertBox.className = 'alert alert-danger';
+                            alertBox.textContent = data.message;
+                        }
+                        alertBox.classList.remove('d-none');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alertBox.className = 'alert alert-danger';
+                        alertBox.textContent = 'An error occurred while saving.';
+                        alertBox.classList.remove('d-none');
+                    })
+                    .finally(() => {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = 'Save Configuration';
+                    });
+                });
+            });
+        </script>
 
         <div class="card mb-4">
             <div class="card-header">Problem Statements</div>
@@ -92,6 +230,142 @@
                 </form>
             </div>
         </div>
+
+        <!-- Faculty Assignment Card -->
+        <div class="card mb-4">
+            <div class="card-header fw-bold">Faculty Assignment</div>
+            <div class="card-body">
+                <div id="facultyAlert" class="alert d-none"></div>
+
+                <div class="mb-3">
+                    <label class="form-label">Assign New Faculty</label>
+                    <div class="input-group">
+                        <select id="facultySelect" class="form-select">
+                            <option value="">Loading faculty...</option>
+                        </select>
+                        <button class="btn btn-primary" id="assignFacultyBtn" type="button">Assign</button>
+                    </div>
+                </div>
+
+                <h6 class="mt-4">Assigned Faculty</h6>
+                <ul class="list-group" id="assignedFacultyList">
+                    <li class="list-group-item text-muted text-center">Loading...</li>
+                </ul>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const hackathonId = {{ hackathon.id }};
+                const facultySelect = document.getElementById('facultySelect');
+                const assignBtn = document.getElementById('assignFacultyBtn');
+                const assignedList = document.getElementById('assignedFacultyList');
+                const alertBox = document.getElementById('facultyAlert');
+
+                function showAlert(msg, type) {
+                    alertBox.className = `alert alert-${type}`;
+                    alertBox.textContent = msg;
+                    alertBox.classList.remove('d-none');
+                    setTimeout(() => alertBox.classList.add('d-none'), 3000);
+                }
+
+                function fetchFaculty() {
+                    // Fetch all faculty for dropdown
+                    fetch('/admin/faculty')
+                        .then(res => res.json())
+                        .then(data => {
+                            facultySelect.innerHTML = '<option value="">Select Faculty...</option>';
+                            data.faculty.forEach(f => {
+                                const option = document.createElement('option');
+                                option.value = f.id;
+                                option.textContent = `${f.name} (${f.email})`;
+                                facultySelect.appendChild(option);
+                            });
+                        });
+
+                    // Fetch assigned faculty
+                    fetch(`/admin/hackathons/${hackathonId}/assigned-faculty`)
+                        .then(res => res.json())
+                        .then(data => {
+                            assignedList.innerHTML = '';
+                            if (data.assigned_faculty.length === 0) {
+                                assignedList.innerHTML = '<li class="list-group-item text-muted text-center">No faculty assigned yet.</li>';
+                            } else {
+                                data.assigned_faculty.forEach(f => {
+                                    const li = document.createElement('li');
+                                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                                    li.innerHTML = `
+                                        <div>
+                                            <strong>${f.name}</strong><br>
+                                            <small class="text-muted">${f.email}</small>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger remove-faculty-btn" data-id="${f.id}">Remove</button>
+                                    `;
+                                    assignedList.appendChild(li);
+                                });
+                                
+                                // Attach delete handlers
+                                document.querySelectorAll('.remove-faculty-btn').forEach(btn => {
+                                    btn.addEventListener('click', function() {
+                                        const facultyId = this.dataset.id;
+                                        if(confirm('Are you sure you want to unassign this faculty?')) {
+                                            removeFaculty(facultyId);
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                }
+
+                function assignFaculty() {
+                    const facultyId = facultySelect.value;
+                    if (!facultyId) {
+                        showAlert('Please select a faculty member.', 'warning');
+                        return;
+                    }
+
+                    assignBtn.disabled = true;
+                    fetch(`/admin/hackathons/${hackathonId}/assign-faculty`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ faculty_id: facultyId })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showAlert(data.message, 'success');
+                            fetchFaculty(); // Refresh list
+                            facultySelect.value = '';
+                        } else {
+                            showAlert(data.message, 'danger');
+                        }
+                    })
+                    .catch(err => showAlert('Error assigning faculty', 'danger'))
+                    .finally(() => assignBtn.disabled = false);
+                }
+
+                function removeFaculty(facultyId) {
+                    fetch(`/admin/hackathons/${hackathonId}/remove-faculty/${facultyId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showAlert(data.message, 'success');
+                            fetchFaculty(); // Refresh list
+                        } else {
+                            showAlert(data.message, 'danger');
+                        }
+                    })
+                    .catch(err => showAlert('Error removing faculty', 'danger'));
+                }
+
+                assignBtn.addEventListener('click', assignFaculty);
+                
+                // Initial Load
+                fetchFaculty();
+            });
+        </script>
     </div>
 </div>
 {% endblock %}

@@ -1,8 +1,9 @@
 from flask import jsonify, request, session
 from . import api_bp
 from app.extensions import db
-from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole
+from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage
 from sqlalchemy import and_
+from datetime import datetime
 
 @api_bp.route('/status')
 def status():
@@ -135,3 +136,83 @@ def add_member_to_team(hackathon_id, team_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'Failed to add member', 'details': str(e)}), 500
+
+@api_bp.route('/scan_qr', methods=['POST'])
+def scan_qr():
+    """
+    Handle scan of TEAM QR code (ACCESS or DINNER)
+    """
+    if session.get('role') not in ['faculty', 'admin']:
+         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    token = data.get('qr_token')
+
+    if not token:
+        return jsonify({'status': 'error', 'message': 'Token missing'}), 400
+
+    # 1. Validate Token
+    qr_record = TeamQR.query.filter_by(qr_token=token).first()
+    if not qr_record:
+        return jsonify({'status': 'error', 'message': 'Invalid QR Token'}), 404
+
+    # 2. Get Context
+    team = Team.query.get(qr_record.team_id)
+    if not team:
+        return jsonify({'status': 'error', 'message': 'Team not found'}), 404
+    
+    response_data = {
+        'team_name': team.name,
+        'hackathon': team.hackathon.name,
+        'type': qr_record.qr_type
+    }
+
+    # 3. Process by Type
+    if qr_record.qr_type == 'ACCESS':
+        # Access is always allowed, just log if needed
+        return jsonify({'status': 'success', 'message': 'Access Granted', 'data': response_data})
+
+    elif qr_record.qr_type in ['BREAKFAST', 'LUNCH', 'DINNER']:
+        # Transaction for Daily Count Update
+        try:
+            today = datetime.utcnow().date()
+            
+            # Fetch usage for TODAY
+            usage = TeamMealUsage.query.filter_by(
+                team_id=team.id, 
+                meal_type=qr_record.qr_type,
+                usage_date=today
+            ).with_for_update().first()
+            
+            # Automatic Reset Logic: If no record for today exists, create it (starting at 0)
+            if not usage:
+                 usage = TeamMealUsage(
+                     team_id=team.id, 
+                     meal_type=qr_record.qr_type, 
+                     used_count=0,
+                     usage_date=today
+                 )
+                 db.session.add(usage)
+            
+            member_count = len(team.members)
+            
+            if usage.used_count < member_count:
+                usage.used_count += 1
+                usage.last_updated = datetime.utcnow()
+                response_data['count'] = f"{usage.used_count}/{member_count}"
+                db.session.commit()
+                return jsonify({'status': 'success', 'message': f'{qr_record.qr_type} Verified', 'data': response_data})
+            else:
+                db.session.rollback()
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'Daily Limit Reached ({usage.used_count}/{member_count})',
+                    'data': response_data
+                }), 400
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    return jsonify({'status': 'error', 'message': 'Unknown QR Type'}), 400
+

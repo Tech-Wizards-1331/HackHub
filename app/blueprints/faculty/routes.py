@@ -1,7 +1,7 @@
 from flask import render_template, request, session, redirect, url_for, flash
 from . import faculty_bp
 from app.extensions import db
-from app.models import User, QRLog, Team, Evaluation, Stage, Hackathon
+from app.models import User, QRLog, Team, Evaluation, Hackathon, HackathonStatus, FacultyAssignment
 from functools import wraps
 
 def faculty_required(f):
@@ -16,8 +16,10 @@ def faculty_required(f):
 @faculty_bp.route('/dashboard')
 @faculty_required
 def dashboard():
-    # Show all hackathons for simplicity in this demo, or filter by assignment
-    hackathons = Hackathon.query.all()
+    # Only show hackathons where the faculty is assigned
+    assignments = FacultyAssignment.query.filter_by(faculty_id=session['user_id']).all()
+    hackathon_ids = [a.hackathon_id for a in assignments]
+    hackathons = Hackathon.query.filter(Hackathon.id.in_(hackathon_ids)).all() if hackathon_ids else []
     return render_template('faculty/dashboard.html', hackathons=hackathons)
 
 @faculty_bp.route('/scan_qr', methods=['GET', 'POST'])
@@ -66,35 +68,75 @@ def scan_qr():
 @faculty_bp.route('/evaluate/<int:hackathon_id>/teams')
 @faculty_required
 def evaluate_teams_list(hackathon_id):
+    # Check assignment
+    assignment = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id, faculty_id=session['user_id']).first()
+    if not assignment:
+        flash("You are not assigned to this hackathon.")
+        return redirect(url_for('faculty.dashboard'))
+        
     hackathon = Hackathon.query.get_or_404(hackathon_id)
-    return render_template('faculty/evaluate_list.html', hackathon=hackathon, teams=hackathon.teams)
+    
+    # Get set of team IDs already evaluated by this faculty
+    evaluated_teams = db.session.query(Evaluation.team_id).filter_by(
+        hackathon_id=hackathon_id, 
+        faculty_id=session['user_id']
+    ).all()
+    evaluated_team_ids = {t[0] for t in evaluated_teams}
+    
+    return render_template('faculty/evaluate_list.html', 
+                           hackathon=hackathon, 
+                           teams=hackathon.teams, 
+                           evaluated_team_ids=evaluated_team_ids,
+                           is_locked=(hackathon.status == HackathonStatus.RESULT_PUBLISHED))
 
 @faculty_bp.route('/evaluate/team/<int:team_id>', methods=['GET', 'POST'])
 @faculty_required
 def evaluate_team(team_id):
     team = Team.query.get_or_404(team_id)
-    stages = team.hackathon.stages
     
-    # Fairness Check: College Conflict
-    faculty = User.query.get(session['user_id'])
-    for member in team.members:
-        # Assuming we can access member.user.college. 
-        # (Need to ensure User relationship is loaded or via join)
-        if member.user.college and faculty.college and member.user.college.lower() == faculty.college.lower():
-            flash(f"Conflict of Interest: Team member {member.user.username} is from your college ({faculty.college}). Calculation disabled.", "error")
-            return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
+    # Check if faculty is assigned to this hackathon
+    assignment = FacultyAssignment.query.filter_by(hackathon_id=team.hackathon_id, faculty_id=session['user_id']).first()
+    if not assignment:
+        flash("You are not assigned to evaluate this hackathon.", "error")
+        return redirect(url_for('faculty.dashboard'))
+
+    if team.hackathon.status == HackathonStatus.RESULT_PUBLISHED:
+        flash("Evaluations are locked.", "error")
+        return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
     
     if request.method == 'POST':
-        stage_id = request.form.get('stage_id')
-        score = request.form.get('score')
-        comments = request.form.get('comments')
-        
-        # Check if already evaluated for this stage?
-        
-        eval = Evaluation(team_id=team.id, faculty_id=session['user_id'], stage_id=stage_id, score=score, comments=comments)
-        db.session.add(eval)
-        db.session.commit()
-        flash("Evaluation submitted")
-        return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
-        
-    return render_template('faculty/evaluate_form.html', team=team, stages=stages)
+        existing_eval = Evaluation.query.filter_by(team_id=team_id, faculty_id=session['user_id']).first()
+        if existing_eval:
+            flash("You have already evaluated this team.", "error")
+            return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
+
+        try:
+            innovation = int(request.form.get('innovation_score'))
+            technical = int(request.form.get('technical_score'))
+            uiux = int(request.form.get('uiux_score'))
+            practicality = int(request.form.get('practicality_score'))
+            
+            if any(score < 0 or score > 10 for score in [innovation, technical, uiux, practicality]):
+                raise ValueError("Scores must be 0-10")
+                
+            total_score = innovation + technical + uiux + practicality
+            
+            evaluation = Evaluation(
+                hackathon_id=team.hackathon_id,
+                team_id=team.id,
+                faculty_id=session['user_id'],
+                innovation_score=innovation,
+                technical_score=technical,
+                uiux_score=uiux,
+                practicality_score=practicality,
+                total_score=total_score
+            )
+            db.session.add(evaluation)
+            db.session.commit()
+            flash("Evaluation submitted")
+            return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
+            
+        except ValueError:
+            flash("Invalid scores. Must be integers 0-10.", "error")
+            
+    return render_template('faculty/evaluate_form.html', team=team)

@@ -1,23 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Evaluate Team: {{ team.name }}</h2>
-<form method="POST">
-    <div class="mb-3">
-        <label>Stage</label>
-        <select name="stage_id" class="form-select" required>
-            {% for stage in stages %}
-            <option value="{{ stage.id }}">{{ stage.name }} (Weight: {{ stage.weightage }}%)</option>
-            {% endfor %}
-        </select>
+<div class="container mt-4">
+    <h2>Evaluate Team: {{ team.name }}</h2>
+    <div class="card mt-3">
+        <div class="card-body">
+            <form method="POST">
+                
+                <p class="text-muted mb-4">Rate each criterion from 0 to 10.</p>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Innovation Score (0-10)</label>
+                        <input type="number" name="innovation_score" min="0" max="10" class="form-control" required>
+                        <div class="form-text">Novelty and originality of the idea.</div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Technical Complexity (0-10)</label>
+                        <input type="number" name="technical_score" min="0" max="10" class="form-control" required>
+                        <div class="form-text">Code quality, stack choice, and implementation difficulty.</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">UI/UX Design (0-10)</label>
+                        <input type="number" name="uiux_score" min="0" max="10" class="form-control" required>
+                        <div class="form-text">User interface, experience, and accessibility.</div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Practicality & Impact (0-10)</label>
+                        <input type="number" name="practicality_score" min="0" max="10" class="form-control" required>
+                        <div class="form-text">Real-world application and business potential.</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Submit Evaluation</button>
+                    <a href="{{ url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id) }}" class="btn btn-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="mb-3">
-        <label>Score (0-10)</label>
-        <input type="number" name="score" min="0" max="10" step="0.1" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label>Comments</label>
-        <textarea name="comments" class="form-control"></textarea>
-    </div>
-    <button type="submit" class="btn btn-success">Submit Evaluation</button>
-</form>
+</div>
 {% endblock %}

@@ -41,6 +41,24 @@
                             <input type="number" name="max_team_size" class="form-control" value="4" min="1">
                         </div>
                     </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Meal Configuration</label>
+                        <div class="card p-3 bg-light border-0">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast">
+                                <label class="form-check-label" for="checkBreakfast">Enable Breakfast QR</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch">
+                                <label class="form-check-label" for="checkLunch">Enable Lunch QR</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner">
+                                <label class="form-check-label" for="checkDinner">Enable Dinner QR</label>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <button type="submit" class="btn btn-primary btn-lg px-5">Create Hackathon</button>
