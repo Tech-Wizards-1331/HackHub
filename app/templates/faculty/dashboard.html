@@ -1,61 +1,91 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row align-items-center mb-4">
-    <div class="col">
-        <h2 class="fw-bold text-gradient">Faculty Dashboard</h2>
-        <p class="text-muted">Manage events and evaluate teams</p>
-    </div>
-</div>
-
-<div class="row g-4">
-    <!-- Quick Actions Card -->
-    <div class="col-md-5 col-lg-4">
-        <div class="card h-100 text-center p-4">
-            <div class="card-body">
-                <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-4" style="width: 80px; height: 80px;">
-                    <i class="bi bi-qr-code-scan fs-1"></i>
-                </div>
-                <h4 class="fw-bold mb-2">QR Scanner</h4>
-                <p class="text-muted mb-4 small">Scan participant QR codes for quick registration, attendance, and meal tracking.</p>
-                <a href="{{ url_for('faculty.scan_qr') }}" class="btn btn-primary w-100 rounded-pill shadow-sm">
-                    <i class="bi bi-camera-fill me-2"></i>Launch Scanner
-                </a>
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="hh-badge hh-badge--info"><i class="bi bi-easel2"></i> Faculty</span>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-lightning-charge"></i> Fast flow</span>
             </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Dashboard</h1>
+            <p class="hh-muted mt-1">Scan quickly. Evaluate clearly. Move on.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('faculty.scan_qr') }}" class="hh-btn hh-btn-primary"><i class="bi bi-camera"></i> Open Scanner</a>
         </div>
     </div>
 
-    <!-- Assignments Card -->
-    <div class="col-md-7 col-lg-8">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-clipboard-check me-2"></i>Assigned Evaluations</h5>
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <!-- Scan-first panel -->
+        <div class="xl:col-span-1">
+            <div class="hh-card hh-card-hover p-4">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <div class="text-sm hh-muted">Quick action</div>
+                        <h2 class="text-lg font-semibold">QR Scanner</h2>
+                        <p class="hh-muted text-sm mt-1">Optimized for USB scanners and rapid check-ins.</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25);">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid gap-2">
+                    <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
+                        <div class="text-sm font-medium">Registration</div>
+                        <div class="text-sm hh-muted">Check-in participants at entry.</div>
+                    </div>
+                    <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
+                        <div class="text-sm font-medium">Meals</div>
+                        <div class="text-sm hh-muted">Validate meal QR tokens.</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <a href="{{ url_for('faculty.scan_qr') }}" class="hh-btn hh-btn-primary w-100"><i class="bi bi-camera-fill"></i> Launch Scanner</a>
+                </div>
             </div>
-            <div class="card-body p-0">
+        </div>
+
+        <!-- Assigned hackathons -->
+        <div class="xl:col-span-2">
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Work queue</div>
+                        <h2 class="text-lg font-semibold">Assigned evaluations</h2>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-clipboard-check"></i> {{ hackathons|length }}</span>
+                </div>
+
                 {% if hackathons %}
-                <div class="list-group list-group-flush bg-transparent">
+                <div class="grid gap-2">
                     {% for h in hackathons %}
-                    <div class="list-group-item p-3 bg-transparent border-bottom border-light d-flex align-items-center justify-content-between gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="bg-primary bg-opacity-10 text-primary rounded p-2 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                                <i class="bi bi-trophy-fill fs-4"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">{{ h.name }}</h6>
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill mt-1">
-                                    {{ h.status.value }}
-                                </span>
+                    <a href="{{ url_for('faculty.evaluate_teams_list', hackathon_id=h.id) }}" class="hh-link">
+                        <div class="hh-card hh-card-hover p-3" style="background: rgba(255,255,255,0.04);">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.25);">
+                                        <i class="bi bi-trophy"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-semibold truncate">{{ h.name }}</div>
+                                        <div class="text-sm hh-muted truncate">Status: {{ h.status.value }}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-chevron-right"></i> Open</span>
+                                </div>
                             </div>
                         </div>
-                        <a href="{{ url_for('faculty.evaluate_teams_list', hackathon_id=h.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                            Evaluate <i class="bi bi-chevron-right ms-1"></i>
-                        </a>
-                    </div>
+                    </a>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="text-center p-5 text-muted">
-                    <i class="bi bi-clipboard-x fs-1 opacity-25 d-block mb-3"></i>
-                    <p>No hackathons assigned for evaluation yet.</p>
+                <div class="py-10 text-center">
+                    <div class="text-xl mb-2"><i class="bi bi-clipboard-x"></i></div>
+                    <div class="font-semibold">No assignments yet</div>
+                    <div class="hh-muted mt-1">When admins assign you, hackathons appear here.</div>
                 </div>
                 {% endif %}
             </div>

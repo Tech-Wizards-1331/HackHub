@@ -8,295 +8,236 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Bootstrap 5 -->
+    <!-- Tailwind (CDN) - UI-only utilities (no backend changes) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <!-- Bootstrap 5 (kept for grid + existing templates) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='ui/hackhub.css') }}">
     <style>
-        :root {
-            --primary-color: #4f46e5;
-            --primary-hover: #4338ca;
-            --secondary-color: #64748b;
-            --bg-gradient: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-            --card-glass: rgba(255, 255, 255, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.4);
-            --text-main: #111827;
-            --text-muted: #6b7280;
+        /* Small bridge styles to make legacy Bootstrap pages feel consistent */
+        .card, .list-group-item, .modal-content {
+            background: linear-gradient(180deg, var(--hh-panel), var(--hh-panel-strong));
+            border: 1px solid var(--hh-border);
+            color: var(--hh-text);
         }
-        
-        body { 
-            background: var(--bg-gradient); 
-            background-attachment: fixed;
-            font-family: 'Inter', sans-serif;
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        /* Ambient background shapes for better glass effect */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -10%;
-            left: -10%;
-            width: 40%;
-            height: 40%;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
-            border-radius: 50%;
-            z-index: -1;
-            filter: blur(50px);
-        }
-        body::after {
-            content: '';
-            position: fixed;
-            bottom: -10%;
-            right: -10%;
-            width: 40%;
-            height: 40%;
-            background: radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, rgba(79, 70, 229, 0) 70%);
-            border-radius: 50%;
-            z-index: -1;
-            filter: blur(50px);
-        }
-
-        /* Bootstrap Overrides to match Theme */
-        .text-primary { color: var(--primary-color) !important; }
-        .bg-primary { background-color: var(--primary-color) !important; }
-        .border-primary { border-color: var(--primary-color) !important; }
-        
+        .card { border-radius: var(--hh-radius); box-shadow: var(--hh-shadow-soft); }
+        .card-header { background: transparent; border-bottom: 1px solid var(--hh-border); }
+        .text-muted { color: var(--hh-muted) !important; }
+        .table { color: var(--hh-text); }
+        .table > :not(caption) > * > * { background-color: transparent !important; }
         .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        .btn-primary:hover {
-            background-color: var(--primary-hover);
-            border-color: var(--primary-hover);
+            border: 1px solid rgba(124, 58, 237, 0.35) !important;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(99, 102, 241, 0.85)) !important;
         }
         .btn-outline-primary {
-            color: var(--primary-color);
-            border-color: var(--primary-color);
+            border-color: rgba(124, 58, 237, 0.45) !important;
+            color: var(--hh-text) !important;
         }
-        .btn-outline-primary:hover {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-
-        .btn-check:focus + .btn-primary, .btn-primary:focus {
-            background-color: var(--primary-hover);
-            border-color: var(--primary-hover);
-            box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.5);
-        }
-
-        /* Glassmorphism Classes */
-        .glass {
-            background: var(--card-glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-glass);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-        }
-
-        /* Navbar */
-        .navbar {
-            background: rgba(255, 255, 255, 0.8) !important;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border-glass);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
-            padding: 1rem 0;
-        }
-        .navbar-brand {
-            font-weight: 700;
-            color: var(--primary-color) !important;
-            font-size: 1.5rem;
-            letter-spacing: -0.5px;
-        }
-        .nav-link {
-            font-weight: 500;
-            color: var(--text-muted) !important;
-            transition: all 0.2s;
-            border-radius: 6px;
-            padding: 0.5rem 1rem !important;
-        }
-        .nav-link:hover, .nav-link.active {
-            color: var(--primary-color) !important;
-            background: rgba(79, 70, 229, 0.05);
-        }
-
-        /* Cards */
-        .card { 
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-            background: var(--card-glass);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            transition: transform 0.2s, box-shadow 0.2s;
-            overflow: hidden;
-        }
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08);
-        }
-        .card-header {
-            background-color: rgba(255, 255, 255, 0.4);
-            border-bottom: 1px solid var(--border-glass);
-            font-weight: 600;
-            padding: 1.25rem 1.5rem;
-        }
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        /* Buttons */
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-            border: none;
-            font-weight: 500;
-            padding: 0.625rem 1.25rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            transition: all 0.2s;
-        }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3);
-        }
-
-        /* Form Controls */
+        .btn-outline-primary:hover { background: rgba(255,255,255,0.08) !important; }
         .form-control, .form-select {
-            background-color: rgba(255, 255, 255, 0.5);
-            border: 1px solid rgba(209, 213, 219, 0.5);
-            backdrop-filter: blur(4px);
-            border-radius: 8px;
-            padding: 0.625rem 0.875rem;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid var(--hh-border) !important;
+            color: var(--hh-text) !important;
+            border-radius: 12px !important;
         }
-        .form-control:focus, .form-select:focus {
-            background-color: rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-            border-color: var(--primary-color);
-        }
+        .form-control::placeholder { color: rgba(229,231,235,0.55); }
+        html[data-theme="light"] .form-control::placeholder { color: rgba(15,23,42,0.5); }
+        .form-control:focus, .form-select:focus { box-shadow: var(--hh-focus) !important; }
 
-        /* Alerts */
-        .alert {
-            border-radius: 12px;
-            border: 1px solid var(--border-glass);
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            backdrop-filter: blur(4px);
+        /* Page fade-in */
+        .hh-page {
+            animation: hh-fade 220ms ease-out;
         }
-
-        .main-content {
-            flex: 1;
-            padding-bottom: 3rem;
-            position: relative;
-            z-index: 1;
-        }
-        
-        footer {
-            background: white;
-            border-top: 1px solid #e5e7eb;
-            padding: 2rem 0;
-            margin-top: auto;
+        @keyframes hh-fade {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-cpu-fill me-2"></i>HackHub
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    {% if session.get('user_id') %}
-                        {% if session.get('role') == 'admin' %}
-                             <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
-                        {% elif session.get('role') == 'faculty' %}
-                             <li class="nav-item"><a class="nav-link" href="{{ url_for('faculty.dashboard') }}">Dashboard</a></li>
-                        {% else %}
-                             <li class="nav-item"><a class="nav-link" href="{{ url_for('participant.dashboard') }}">Dashboard</a></li>
-                        {% endif %}
-                        <li class="nav-item ms-lg-3">
-                            <a class="btn btn-outline-danger btn-sm" href="{{ url_for('auth.logout') }}">
-                                <i class="bi bi-box-arrow-right me-1"></i>Logout
-                            </a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
-                        <li class="nav-item ms-lg-2"><a class="btn btn-primary btn-sm" href="{{ url_for('auth.register') }}">Register</a></li>
-                    {% endif %}
-                </ul>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="hidden" aria-hidden="true">
+                {% for category, message in messages %}
+                    <div data-hh-flash data-variant="{{ 'error' if category == 'error' else category }}">{{ message }}</div>
+                {% endfor %}
             </div>
-        </div>
-    </nav>
-    <div class="main-content container pt-5 mt-5">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="row justify-content-center mb-4">
-                    <div class="col-md-8">
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show d-flex align-items-center" role="alert">
-                                {% if category == 'error' %}
-                                    <i class="bi bi-exclamation-circle-fill me-2"></i>
-                                {% else %}
-                                    <i class="bi bi-check-circle-fill me-2"></i>
-                                {% endif %}
-                                <div>{{ message }}</div>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        {% endif %}
+    {% endwith %}
+
+    {#
+      IMPORTANT:
+      Jinja blocks cannot be defined twice in the same template, even inside if/else branches.
+      We define the 'content' block once (not rendered) and insert it where needed via self.content().
+    #}
+    {% if false %}
+        {% block content %}{% endblock %}
+    {% endif %}
+
+    {% if session.get('user_id') %}
+        <!-- App Shell (authenticated) -->
+        <div class="min-h-screen flex">
+            <!-- Mobile overlay -->
+            <div data-hh-sidebar-overlay class="hidden fixed inset-0 bg-black/60 z-40"></div>
+
+            <!-- Sidebar -->
+            <aside data-hh-sidebar class="fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-full lg:h-screen w-[280px] translate-x-[-110%] lg:translate-x-0 transition-transform duration-200">
+                <div class="h-full p-4">
+                    <div class="hh-glass h-full p-4 flex flex-col">
+                        <div class="flex items-center justify-between mb-4">
+                            <a href="/" class="hh-link">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.25);">
+                                        <i class="bi bi-cpu-fill"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold leading-tight">HackHub</div>
+                                        <div class="text-xs hh-muted">Hackathon OS</div>
+                                    </div>
+                                </div>
+                            </a>
+
+                            <button data-hh-sidebar-close class="lg:hidden hh-btn" type="button" aria-label="Close sidebar">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 mb-4">
+                            <div class="min-w-0">
+                                <div class="text-sm font-medium truncate">{{ session.get('username', 'User') }}</div>
+                                <div class="text-xs hh-muted truncate">Role: {{ session.get('role', 'participant')|title }}</div>
                             </div>
-                        {% endfor %}
+                            <span class="hh-badge hh-badge--neutral">
+                                <i class="bi bi-shield-check"></i>
+                                Signed in
+                            </span>
+                        </div>
+
+                        <nav class="flex-1">
+                            <div class="text-xs hh-muted mb-2 uppercase tracking-widest">Navigation</div>
+                            <div class="grid gap-1">
+                                {% if session.get('role') == 'admin' %}
+                                    <a class="hh-btn justify-start" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                                    <a class="hh-btn justify-start" href="{{ url_for('admin.create_hackathon') }}"><i class="bi bi-plus-circle"></i> Create Hackathon</a>
+                                {% elif session.get('role') == 'faculty' %}
+                                    <a class="hh-btn justify-start" href="{{ url_for('faculty.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                                    <a class="hh-btn justify-start" href="{{ url_for('faculty.scan_qr') }}"><i class="bi bi-qr-code-scan"></i> QR Scanner</a>
+                                {% else %}
+                                    <a class="hh-btn justify-start" href="{{ url_for('participant.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                                {% endif %}
+                            </div>
+
+                            <div class="text-xs hh-muted mt-5 mb-2 uppercase tracking-widest">Account</div>
+                            <div class="grid gap-1">
+                                <a class="hh-btn justify-start" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a>
+                            </div>
+                        </nav>
+
+                        <div class="mt-4 pt-4 border-t" style="border-color: var(--hh-border);">
+                            <div class="text-xs hh-muted">Tip</div>
+                            <div class="text-sm">Use the sidebar for quick actions.</div>
+                        </div>
                     </div>
                 </div>
-            {% endif %}
-        {% endwith %}
-        {% block content %}{% endblock %}
-    </div>
-    
-    <footer style="background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(10px); border-top: 1px solid var(--border-glass);" class="mt-auto py-5">
-        <div class="container">
-            <div class="row g-4 mb-4">
-                <div class="col-lg-4">
-                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-cpu-fill me-2"></i>HackHub</h5>
-                    <p class="text-muted small">The all-in-one platform for university hackathons, enabling innovation through seamless event management.</p>
-                </div>
-                <div class="col-lg-2 col-6">
-                    <h6 class="fw-bold mb-3">Platform</h6>
-                    <ul class="list-unstyled small text-muted">
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">For Students</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">For Faculty</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Live Events</a></li>
-                    </ul>
-                </div>
-                <div class="col-lg-2 col-6">
-                    <h6 class="fw-bold mb-3">Support</h6>
-                    <ul class="list-unstyled small text-muted">
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Help Center</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Guidelines</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Contact</a></li>
-                    </ul>
-                </div>
-                 <div class="col-lg-4">
-                    <h6 class="fw-bold mb-3">Stay Updated</h6>
-                     <form class="d-flex gap-2">
-                        <input type="email" class="form-control form-control-sm" placeholder="Enter email">
-                        <button class="btn btn-primary btn-sm">Subscribe</button>
-                    </form>
-                </div>
-            </div>
-            <div class="border-top border-secondary border-opacity-10 pt-4 text-center">
-                 <small class="text-muted">&copy; {{ now_year }} HackHub Platform. Built for Innovation.</small>
+            </aside>
+
+            <!-- Main content -->
+            <div class="flex-1 min-w-0">
+                <!-- Topbar -->
+                <header class="sticky top-0 z-30">
+                    <div class="px-4 lg:px-8 pt-4">
+                        <div class="hh-glass px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <button data-hh-sidebar-open class="lg:hidden hh-btn" type="button" aria-label="Open sidebar">
+                                    <i class="bi bi-list"></i>
+                                </button>
+                                <div class="hidden sm:block">
+                                    <div class="text-sm hh-muted">Welcome back</div>
+                                    <div class="font-semibold leading-tight">{{ session.get('username', 'User') }}</div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button data-hh-theme-toggle class="hh-btn" type="button" aria-label="Toggle theme">
+                                    <i data-hh-theme-icon class="bi bi-moon-stars"></i>
+                                    <span class="hidden sm:inline">Theme</span>
+                                </button>
+
+                                {% if session.get('role') == 'admin' %}
+                                    <a class="hh-btn hh-btn-primary" href="{{ url_for('admin.create_hackathon') }}"><i class="bi bi-plus-lg"></i> New</a>
+                                {% elif session.get('role') == 'faculty' %}
+                                    <a class="hh-btn hh-btn-primary" href="{{ url_for('faculty.scan_qr') }}"><i class="bi bi-camera"></i> Scan</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="px-4 lg:px-8 py-6 hh-page">
+                    {{ self.content() }}
+                </main>
+
+                <footer class="px-4 lg:px-8 pb-8">
+                    <div class="hh-muted text-sm">&copy; {{ now_year }} HackHub Platform. Built for Innovation.</div>
+                </footer>
             </div>
         </div>
-    </footer>
+    {% else %}
+        <!-- Public Shell (unauthenticated) -->
+        <header class="sticky top-0 z-30">
+            <div class="px-4 lg:px-8 pt-4">
+                <div class="hh-glass px-4 py-3 flex items-center justify-between">
+                    <a href="/" class="hh-link">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.25);">
+                                <i class="bi bi-cpu-fill"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold leading-tight">HackHub</div>
+                                <div class="text-xs hh-muted">Innovation Platform</div>
+                            </div>
+                        </div>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <button data-hh-theme-toggle class="hh-btn" type="button" aria-label="Toggle theme">
+                            <i data-hh-theme-icon class="bi bi-moon-stars"></i>
+                        </button>
+                        <a class="hh-btn" href="{{ url_for('auth.login') }}"><i class="bi bi-box-arrow-in-right"></i> Login</a>
+                        <a class="hh-btn hh-btn-primary" href="{{ url_for('auth.register') }}"><i class="bi bi-person-plus"></i> Register</a>
+                    </div>
+                </div>
+            </div>
+        </header>
 
+        <main class="px-4 lg:px-8 py-6 hh-page">
+            {{ self.content() }}
+        </main>
+
+        <footer class="px-4 lg:px-8 pb-10">
+            <div class="hh-glass p-5">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div>
+                        <div class="font-semibold">HackHub</div>
+                        <div class="hh-muted text-sm">The all-in-one platform for university hackathons.</div>
+                    </div>
+                    <div class="hh-muted text-sm">&copy; {{ now_year }} HackHub Platform</div>
+                </div>
+            </div>
+        </footer>
+    {% endif %}
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-        // Use Fetch API wrapper for convenience if needed later
-    </script>
+    <script src="{{ url_for('static', filename='ui/hackhub.js') }}"></script>
 </body>
 </html>

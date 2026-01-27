@@ -1,19 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Find Members for Team: {{ team.name }}</h2>
-<p class="text-muted">Hackathon: {{ hackathon.name }}</p>
-
-<div class="mb-3">
-    <label class="form-label">Filter by Skills</label>
-    <input type="text" id="skillFilter" class="form-control" placeholder="Enter skills (e.g., Frontend, Backend, AI)">
-    <button class="btn btn-primary mt-2" onclick="loadParticipants()">Search</button>
-    <button class="btn btn-secondary mt-2" onclick="document.getElementById('skillFilter').value=''; loadParticipants()">Clear</button>
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-3 mb-5">
+    <div>
+        <div class="flex items-center gap-2 mb-2">
+            <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader tools</span>
+            <span class="hh-badge hh-badge--neutral"><i class="bi bi-flag"></i> {{ hackathon.name }}</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Find members for {{ team.name }}</h2>
+        <div class="hh-muted mt-1">Search solo participants and add them to your team.</div>
+    </div>
+    <div class="flex items-center gap-2">
+        <a class="hh-btn" href="{{ url_for('participant.view_team', team_id=team.id) }}"><i class="bi bi-arrow-left"></i> Back to team</a>
+    </div>
 </div>
 
-<div id="participantsList">
-    <div class="text-center p-4">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
+<div class="hh-card hh-card-hover mb-4">
+    <div class="p-4 border-b" style="border-color: var(--hh-border);">
+        <div class="text-sm hh-muted">Filters</div>
+        <div class="text-lg font-semibold"><i class="bi bi-funnel me-2"></i>Skills</div>
+    </div>
+    <div class="p-4">
+        <label class="hh-muted text-sm">Enter skills</label>
+        <div class="flex flex-col sm:flex-row gap-2 mt-2">
+            <input type="text" id="skillFilter" class="hh-input" placeholder="e.g., Frontend, Backend, AI/ML">
+            <button type="button" class="hh-btn hh-btn-primary" onclick="loadParticipants()"><i class="bi bi-search"></i> Search</button>
+            <button type="button" class="hh-btn" onclick="document.getElementById('skillFilter').value=''; loadParticipants()"><i class="bi bi-x-circle"></i> Clear</button>
+        </div>
+        <div class="hh-muted text-sm mt-3">Tip: try a single skill keyword for best results.</div>
+    </div>
+</div>
+
+<div class="hh-card hh-card-hover">
+    <div class="p-4 border-b" style="border-color: var(--hh-border);">
+        <div class="text-sm hh-muted">Results</div>
+        <div class="text-lg font-semibold"><i class="bi bi-person-lines-fill me-2"></i>Solo Participants</div>
+    </div>
+    <div class="p-4" id="participantsList">
+        <div class="grid gap-3">
+            <div class="hh-skeleton" style="height: 18px; width: 45%;"></div>
+            <div class="hh-skeleton" style="height: 86px; width: 100%;"></div>
+            <div class="hh-skeleton" style="height: 86px; width: 100%;"></div>
         </div>
     </div>
 </div>
@@ -21,6 +47,12 @@
 <script>
 const hackathonId = {{ hackathon.id }};
 const teamId = {{ team.id }};
+
+function hhToast(msg, variant) {
+    if (window.HackHubUI && typeof window.HackHubUI.toast === 'function') return window.HackHubUI.toast(msg, variant);
+    if (variant === 'error' || variant === 'danger') return alert(msg);
+    console.log(msg);
+}
 
 function loadParticipants() {
     const skillFilter = document.getElementById('skillFilter').value;
@@ -32,17 +64,19 @@ function loadParticipants() {
             const container = document.getElementById('participantsList');
             
             if (data.participants && data.participants.length > 0) {
-                let html = '<div class="list-group">';
+                let html = '<div class="grid gap-3">';
                 data.participants.forEach(p => {
                     html += `
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1">${p.full_name || p.username}</h6>
-                                    <p class="mb-1"><strong>Skills:</strong> ${p.skills || 'Not specified'}</p>
-                                    <small class="text-muted">Experience: ${p.experience_level || 'N/A'} | ${p.college || 'N/A'}</small>
+                        <div class="hh-card hh-card-hover p-4">
+                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="font-semibold">${p.full_name || p.username}</div>
+                                    <div class="hh-muted text-sm mt-1"><strong>Skills:</strong> ${p.skills || 'Not specified'}</div>
+                                    <div class="hh-muted text-sm mt-1">Experience: ${p.experience_level || 'N/A'} • ${p.college || 'N/A'}</div>
                                 </div>
-                                <button class="btn btn-success" onclick="addToTeam(${p.id}, '${p.full_name || p.username}')">Add to Team</button>
+                                <button class="hh-btn hh-btn-primary" onclick="addToTeam(${p.id}, '${(p.full_name || p.username).replace(/'/g, "\\'")}')">
+                                    <i class="bi bi-person-plus"></i> Add
+                                </button>
                             </div>
                         </div>
                     `;
@@ -50,17 +84,19 @@ function loadParticipants() {
                 html += '</div>';
                 container.innerHTML = html;
             } else {
-                container.innerHTML = '<div class="alert alert-info">No solo participants found matching your criteria.</div>';
+                container.innerHTML = '<div class="hh-muted">No solo participants found matching your criteria.</div>';
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            document.getElementById('participantsList').innerHTML = '<div class="alert alert-danger">Error loading participants</div>';
+            document.getElementById('participantsList').innerHTML = '<div class="hh-card p-4" style="border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10);">Error loading participants</div>';
+            hhToast('Error loading participants', 'error');
         });
 }
 
 function addToTeam(participantId, name) {
     if (!confirm(`Add ${name} to your team?`)) return;
+    hhToast('Adding member…', 'info');
     
     fetch(`/api/hackathon/${hackathonId}/team/${teamId}/add_member`, {
         method: 'POST',
@@ -72,15 +108,15 @@ function addToTeam(participantId, name) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Member added successfully!');
+            hhToast('Member added successfully!', 'success');
             loadParticipants(); // Refresh list
         } else {
-            alert('Error: ' + (data.error || 'Failed to add member'));
+            hhToast(data.error || 'Failed to add member', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error adding member');
+        hhToast('Error adding member', 'error');
     });
 }
 

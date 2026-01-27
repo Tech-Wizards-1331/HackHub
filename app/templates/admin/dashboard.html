@@ -1,71 +1,184 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-0">Admin Dashboard</h2>
-        <p class="text-muted">Manage hackathons and system settings</p>
-    </div>
-    <a href="{{ url_for('admin.create_hackathon') }}" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-2"></i>Create Hackathon
-    </a>
-</div>
+{% set ns = namespace(total_teams=0) %}
+{% for h in hackathons %}
+    {% set ns.total_teams = ns.total_teams + (stats[h.id].teams if stats and stats[h.id] is defined else 0) %}
+{% endfor %}
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Your Hackathons</h5>
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="hh-badge hh-badge--info"><i class="bi bi-shield-lock"></i> Admin</span>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-activity"></i> Control center</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Dashboard</h1>
+            <p class="hh-muted mt-1">Launch, monitor, and close hackathons with confidence.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('admin.create_hackathon') }}" class="hh-btn hh-btn-primary"><i class="bi bi-plus-lg"></i> Create Hackathon</a>
+        </div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent; --bs-table-hover-bg: rgba(255,255,255,0.3);">
-                <thead style="background: rgba(255,255,255,0.4); border-bottom: 1px solid var(--border-glass);">
-                    <tr>
-                        <th class="ps-4">Name</th>
-                        <th>Status</th>
-                        <th>Start Date</th>
-                        <th>Stats</th>
-                        <th class="text-end pe-4">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for hackathon in hackathons %}
-                    <tr>
-                        <td class="ps-4 fw-bold text-dark">{{ hackathon.name }}</td>
-                        <td>
-                            {% if hackathon.status.name == 'REGISTRATION_OPEN' %}
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">Open</span>
-                            {% elif hackathon.status.name == 'DRAFT' %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill">Draft</span>
-                            {% else %}
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">{{ hackathon.status.value }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-muted">{{ hackathon.start_date.strftime('%Y-%m-%d %H:%M') if hackathon.start_date else 'N/A' }}</td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                <span class="badge bg-white text-dark border border-opacity-25">
-                                    <i class="bi bi-people-fill me-1"></i> {{ stats[hackathon.id].teams }} Teams
-                                </span>
-                            </div>
-                        </td>
-                        <td class="text-end pe-4">
-                            <a href="{{ url_for('admin.results', hackathon_id=hackathon.id) }}" class="btn btn-sm btn-outline-success me-1">
-                                Results
-                            </a>
-                            <a href="{{ url_for('admin.manage_hackathon', id=hackathon.id) }}" class="btn btn-sm btn-outline-primary" style="background: rgba(255,255,255,0.5);">
-                                Manage <i class="bi bi-chevron-right ms-1"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
-                            <i class="bi bi-emoji-frown fs-4 d-block mb-2"></i>
-                            No hackathons found. Create one to get started.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+    <!-- KPI Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Total Hackathons</div>
+                    <div class="text-2xl font-semibold mt-1">{{ hackathons|length }}</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.25);">
+                    <i class="bi bi-trophy"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Across your org</div>
+        </div>
+
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Teams Registered</div>
+                    <div class="text-2xl font-semibold mt-1">{{ ns.total_teams }}</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25);">
+                    <i class="bi bi-people"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Derived from current dataset</div>
+        </div>
+
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Attendance</div>
+                    <div class="text-2xl font-semibold mt-1">—</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25);">
+                    <i class="bi bi-qr-code-scan"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Add data source later (UI ready)</div>
+        </div>
+
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Evaluations</div>
+                    <div class="text-2xl font-semibold mt-1">—</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25);">
+                    <i class="bi bi-clipboard-data"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Plugs into rubric scoring</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <!-- Hackathons Table -->
+        <div class="xl:col-span-2 hh-card p-4">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <div class="text-sm hh-muted">Portfolio</div>
+                    <h2 class="text-lg font-semibold">Your hackathons</h2>
+                </div>
+            </div>
+
+            <div class="overflow-auto">
+                <table class="hh-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Start</th>
+                            <th>Teams</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hackathon in hackathons %}
+                        <tr>
+                            <td>
+                                <div class="font-semibold">{{ hackathon.name }}</div>
+                                <div class="text-sm hh-muted">ID: {{ hackathon.id }}</div>
+                            </td>
+                            <td>
+                                {% if hackathon.status.name == 'REGISTRATION_OPEN' %}
+                                    <span class="hh-badge hh-badge--success"><i class="bi bi-unlock"></i> Registration Open</span>
+                                {% elif hackathon.status.name == 'DRAFT' %}
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-pencil"></i> Draft</span>
+                                {% elif hackathon.status.name == 'PROBLEM_SELECTION' %}
+                                    <span class="hh-badge hh-badge--warn"><i class="bi bi-list-check"></i> Problem Selection</span>
+                                {% elif hackathon.status.name == 'RESULT_PUBLISHED' %}
+                                    <span class="hh-badge hh-badge--info"><i class="bi bi-megaphone"></i> Results Published</span>
+                                {% else %}
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-dot"></i> {{ hackathon.status.value }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="text-sm">{{ hackathon.start_date.strftime('%Y-%m-%d %H:%M') if hackathon.start_date else 'N/A' }}</div>
+                            </td>
+                            <td>
+                                <span class="hh-pill"><i class="bi bi-people me-1"></i> {{ stats[hackathon.id].teams }} teams</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <div class="flex justify-end gap-2">
+                                    <a href="{{ url_for('admin.results', hackathon_id=hackathon.id) }}" class="hh-btn"><i class="bi bi-bar-chart"></i> Results</a>
+                                    <a href="{{ url_for('admin.manage_hackathon', id=hackathon.id) }}" class="hh-btn hh-btn-primary"><i class="bi bi-sliders"></i> Manage</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="py-10 text-center">
+                                    <div class="text-xl mb-2"><i class="bi bi-inbox"></i></div>
+                                    <div class="font-semibold">No hackathons yet</div>
+                                    <div class="hh-muted mt-1">Create one to start registrations and evaluations.</div>
+                                    <div class="mt-4">
+                                        <a href="{{ url_for('admin.create_hackathon') }}" class="hh-btn hh-btn-primary"><i class="bi bi-plus-lg"></i> Create Hackathon</a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics (UI-only placeholders) -->
+        <div class="hh-card p-4">
+            <div>
+                <div class="text-sm hh-muted">Analytics</div>
+                <h2 class="text-lg font-semibold">Trends</h2>
+                <p class="hh-muted mt-1 text-sm">Charts are UI-ready (connect data when available).</p>
+            </div>
+
+            <div class="mt-4 grid gap-3">
+                <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-medium">Registrations</div>
+                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> last 7d</span>
+                    </div>
+                    <div class="h-28 rounded-xl hh-skeleton"></div>
+                </div>
+                <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-medium">Attendance</div>
+                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> event day</span>
+                    </div>
+                    <div class="h-28 rounded-xl hh-skeleton"></div>
+                </div>
+                <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-medium">Evaluations</div>
+                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> live</span>
+                    </div>
+                    <div class="h-28 rounded-xl hh-skeleton"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -1,34 +1,75 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Register for {{ hackathon.name }}</h2>
-<p>{{ hackathon.description }}</p>
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-3 mb-5">
+    <div>
+        <div class="flex items-center gap-2 mb-2">
+            <span class="hh-badge hh-badge--success"><i class="bi bi-unlock"></i> Registration</span>
+            <span class="hh-badge hh-badge--neutral"><i class="bi bi-flag"></i> {{ hackathon.name }}</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Join this hackathon</h2>
+        <div class="hh-muted mt-1">Create a team, or go solo and let leaders invite you.</div>
+    </div>
+    <div class="flex items-center gap-2">
+        <a class="hh-btn" href="{{ url_for('participant.dashboard') }}"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+</div>
 
-<div class="row mt-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">Create a Team</div>
-            <div class="card-body">
-                <form method="POST">
+<div class="hh-card p-4 mb-4">
+    <div class="text-sm hh-muted">About</div>
+    <div class="font-semibold mt-1">{{ hackathon.name }}</div>
+    <div class="hh-muted mt-2">{{ hackathon.description }}</div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="hh-card hh-card-hover h-100">
+            <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm hh-muted">Option A</div>
+                        <div class="text-lg font-semibold"><i class="bi bi-people me-2"></i>Create a Team</div>
+                    </div>
+                    <span class="hh-pill"><i class="bi bi-lightning-charge"></i> Fast</span>
+                </div>
+            </div>
+            <div class="p-4">
+                <form method="POST" onsubmit="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Creating team…', 'info') : null">
                     <input type="hidden" name="action" value="create_team">
                     <div class="mb-3">
-                        <label>Team Name</label>
-                        <input type="text" name="team_name" class="form-control" required>
+                        <label class="hh-muted text-sm">Team name</label>
+                        <input type="text" name="team_name" class="hh-input mt-2" placeholder="e.g., Neon Pioneers" required>
+                        <div class="hh-muted text-sm mt-2">Tip: keep it short and memorable.</div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Create & Register</button>
+                    <button type="submit" class="hh-btn hh-btn-primary">
+                        <i class="bi bi-check2-circle"></i> Create & Register
+                    </button>
                 </form>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-success text-white">Looking for Team</div>
-            <div class="card-body">
-                <p class="text-muted">Make yourself visible to team leaders</p>
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#soloModal">
-                    Find Team
-                </button>
-                <small class="d-block mt-2 text-muted">Team leaders can directly add you to their team</small>
+
+    <div class="col-lg-6">
+        <div class="hh-card hh-card-hover h-100">
+            <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm hh-muted">Option B</div>
+                        <div class="text-lg font-semibold"><i class="bi bi-person-workspace me-2"></i>Looking for Team</div>
+                    </div>
+                    <span class="hh-pill"><i class="bi bi-broadcast"></i> Visible</span>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="hh-muted">Make yourself visible to team leaders. They can add you directly.</div>
+                <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                    <button type="button" class="hh-btn hh-btn-primary" data-bs-toggle="modal" data-bs-target="#soloModal">
+                        <i class="bi bi-search"></i> Find Team
+                    </button>
+                    <button type="button" class="hh-btn" onclick="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Open the modal and pick your skills.', 'info') : null">
+                        <i class="bi bi-info-circle"></i> How it works
+                    </button>
+                </div>
+                <div class="hh-muted text-sm mt-3">Your skills help leaders match roles quickly.</div>
             </div>
         </div>
     </div>
@@ -39,13 +80,14 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Your Skills</h5>
+                <h5 class="modal-title"><i class="bi bi-tags me-2"></i>Your Skills</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('participant.solo_register', hackathon_id=hackathon.id) }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Select Your Skills</label>
+                        <label class="form-label">Select your skills</label>
+                        <div class="hh-muted text-sm mb-3">Pick multiple. This helps leaders discover you.</div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="skills" value="Frontend" id="skill1">
                             <label class="form-check-label" for="skill1">Frontend</label>
@@ -73,8 +115,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save & Become Visible</button>
+                    <button type="button" class="hh-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="hh-btn hh-btn-primary"><i class="bi bi-check2"></i> Save & Become Visible</button>
                 </div>
             </form>
         </div>
@@ -87,6 +129,16 @@ if (form) {
     form.addEventListener('submit', function(e) {
         const checkboxes = form.querySelectorAll('input[name="skills"]:checked');
         const skills = Array.from(checkboxes).map(cb => cb.value).join(', ');
+
+        if (!skills) {
+            e.preventDefault();
+            if (window.HackHubUI && typeof window.HackHubUI.toast === 'function') {
+                window.HackHubUI.toast('Select at least one skill.', 'warning');
+            } else {
+                alert('Select at least one skill.');
+            }
+            return;
+        }
         
         // Remove all checkboxes and add single input
         const skillsInput = document.createElement('input');

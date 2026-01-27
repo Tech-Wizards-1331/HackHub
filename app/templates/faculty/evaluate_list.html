@@ -1,51 +1,71 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Evaluate Teams: {{ hackathon.name }}</h2>
-        {% if is_locked %}
-        <span class="badge bg-danger fs-6">Evaluations Locked (Results Published)</span>
-        {% endif %}
+<div class="flex flex-col gap-4">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('faculty.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-clipboard-check"></i> Evaluation</span>
+                {% if is_locked %}
+                    <span class="hh-badge hh-badge--danger"><i class="bi bi-lock"></i> Locked</span>
+                {% endif %}
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Evaluate teams</h1>
+            <p class="hh-muted mt-1">{{ hackathon.name }}</p>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
+    <div class="hh-card p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <div class="text-sm hh-muted">Teams</div>
+                <h2 class="text-lg font-semibold">Queue</h2>
+            </div>
+            <span class="hh-badge hh-badge--neutral"><i class="bi bi-people"></i> {{ teams|length }}</span>
+        </div>
+
+        <div class="overflow-auto">
+            <table class="hh-table">
+                <thead>
                     <tr>
-                        <th>Team Name</th>
+                        <th>Team</th>
                         <th>Members</th>
-                        <th class="text-end">Action</th>
+                        <th style="text-align:right;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for team in teams %}
                     <tr>
-                        <td class="fw-bold">{{ team.name }}</td>
                         <td>
-                            <small class="text-muted">
-                                {% for member in team.members %}
-                                {{ member.user.username }}{% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                            </small>
+                            <div class="font-semibold">{{ team.name }}</div>
+                            <div class="text-sm hh-muted">Hackathon: {{ hackathon.name }}</div>
                         </td>
-                        <td class="text-end">
+                        <td>
+                            <div class="text-sm hh-muted">
+                                {% for member in team.members %}
+                                    {{ member.user.username }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td style="text-align:right;">
                             {% if is_locked %}
-                                <button class="btn btn-sm btn-secondary" disabled>Locked</button>
+                                <span class="hh-badge hh-badge--danger"><i class="bi bi-lock"></i> Locked</span>
                             {% elif team.id in evaluated_team_ids %}
-                                <button class="btn btn-sm btn-success" disabled>
-                                    <i class="bi bi-check-circle me-1"></i>Evaluated
-                                </button>
+                                <span class="hh-badge hh-badge--success"><i class="bi bi-check2-circle"></i> Evaluated</span>
                             {% else %}
-                                <a href="{{ url_for('faculty.evaluate_team', team_id=team.id) }}" class="btn btn-sm btn-primary">
-                                    Evaluate
-                                </a>
+                                <a href="{{ url_for('faculty.evaluate_team', team_id=team.id) }}" class="hh-btn hh-btn-primary"><i class="bi bi-clipboard-plus"></i> Evaluate</a>
                             {% endif %}
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" class="text-center py-4 text-muted">No teams found.</td>
+                        <td colspan="3">
+                            <div class="py-10 text-center">
+                                <div class="text-xl mb-2"><i class="bi bi-inbox"></i></div>
+                                <div class="font-semibold">No teams found</div>
+                                <div class="hh-muted mt-1">Teams appear here once registrations are done.</div>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

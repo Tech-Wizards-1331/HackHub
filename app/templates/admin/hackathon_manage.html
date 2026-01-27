@@ -1,69 +1,139 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <h2>{{ hackathon.name }}</h2>
-        <p>{{ hackathon.description }}</p>
-        
-        <div class="card mb-4">
-            <div class="card-header">Status Management</div>
-            <div class="card-body">
-                <p>Current Status: <strong>{{ hackathon.status.value }}</strong></p>
-                <form method="POST" class="d-flex gap-2 mb-3">
-                    <select name="status" class="form-select w-auto">
+{% set stages = [
+    ('DRAFT', 'Draft', 'bi-pencil'),
+    ('REGISTRATION_OPEN', 'Registration', 'bi-unlock'),
+    ('PROBLEM_SELECTION', 'Problem Selection', 'bi-list-check'),
+    ('EVALUATION', 'Evaluation', 'bi-clipboard-data'),
+    ('RESULT_PUBLISHED', 'Results', 'bi-megaphone')
+] %}
+
+<div class="flex flex-col gap-4">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('admin.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-sliders"></i> Manage</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">{{ hackathon.name }}</h1>
+            <p class="hh-muted mt-1">{{ hackathon.description }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('admin.results', hackathon_id=hackathon.id) }}" class="hh-btn"><i class="bi bi-bar-chart"></i> Results</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <!-- Left: lifecycle -->
+        <div class="xl:col-span-1">
+            <div class="hh-card p-4 sticky" style="top: 92px;">
+                <div class="text-sm hh-muted">Lifecycle</div>
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Stage timeline</h2>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-dot"></i> {{ hackathon.status.value }}</span>
+                </div>
+
+                <div class="mt-4 grid gap-2">
+                    {% for key, label, icon in stages %}
+                        {% set is_active = (hackathon.status.name == key) %}
+                        <div class="flex items-center gap-3 p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: {{ 'rgba(124,58,237,0.14)' if is_active else 'rgba(255,255,255,0.04)' }};">
+                            <div class="w-9 h-9 rounded-2xl flex items-center justify-center" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.06);">
+                                <i class="bi {{ icon }}"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-medium truncate">{{ label }}</div>
+                                <div class="text-sm hh-muted truncate">{{ 'Current stage' if is_active else '' }}</div>
+                            </div>
+                            <div class="ms-auto">
+                                {% if is_active %}
+                                    <span class="hh-badge hh-badge--info"><i class="bi bi-record-circle"></i> Active</span>
+                                {% else %}
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-circle"></i></span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4 p-3 rounded-xl" style="background: rgba(255,255,255,0.04); border: 1px solid var(--hh-border);">
+                    <div class="text-sm font-medium">Quick guidance</div>
+                    <div class="text-sm hh-muted mt-1">Stage changes affect participant flows and faculty actions.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: controls -->
+        <div class="xl:col-span-2 flex flex-col gap-4">
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Control</div>
+                        <h2 class="text-lg font-semibold">Status management</h2>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-flag"></i> {{ hackathon.status.value }}</span>
+                </div>
+
+                <form method="POST" class="d-flex gap-2 flex-wrap">
+                    <select name="status" class="form-select" style="max-width: 360px;">
                         {% for status in HackathonStatus %}
                             <option value="{{ status.name }}" {% if hackathon.status == status %}selected{% endif %}>{{ status.value }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" class="btn btn-warning">Update Status</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-arrow-repeat me-1"></i> Update</button>
                 </form>
-                
+
                 {% if hackathon.status.name == 'PROBLEM_SELECTION' %}
-                <form method="POST">
-                    <input type="hidden" name="action" value="auto_assign">
-                    <button type="submit" class="btn btn-danger" onclick="return confirm('Ensure 1 hour has passed. This will assign problems to all remaining teams. Continue?')">
-                        Trigger Auto-Assign (End Phase)
-                    </button>
-                </form>
+                <div class="mt-3 p-3 rounded-xl" style="border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.10);">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="font-medium">End phase: Auto-assign remaining problems</div>
+                            <div class="text-sm hh-muted mt-1">Ensure 1 hour has passed before triggering.</div>
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="auto_assign">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Ensure 1 hour has passed. This will assign problems to all remaining teams. Continue?')">
+                                Trigger
+                            </button>
+                        </form>
+                    </div>
+                </div>
                 {% endif %}
             </div>
-        </div>
 
-        <div class="card mb-4">
-            <div class="card-header">Meal Configuration</div>
-            <div class="card-body">
-                <form method="POST">
+            <div class="hh-card p-4">
+                <div class="text-sm hh-muted">Operations</div>
+                <h2 class="text-lg font-semibold">Meal QR configuration</h2>
+                <p class="hh-muted text-sm mt-1">Enable/disable meal QR types for this hackathon.</p>
+                <form method="POST" class="mt-3">
                     <input type="hidden" name="action" value="update_meals">
-                    <div class="d-flex gap-4">
+                    <div class="d-flex gap-4 flex-wrap">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast" {% if hackathon.enable_breakfast %}checked{% endif %}>
-                            <label class="form-check-label" for="checkBreakfast">Breakfast QR</label>
+                            <label class="form-check-label" for="checkBreakfast">Breakfast</label>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch" {% if hackathon.enable_lunch %}checked{% endif %}>
-                            <label class="form-check-label" for="checkLunch">Lunch QR</label>
+                            <label class="form-check-label" for="checkLunch">Lunch</label>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner" {% if hackathon.enable_dinner %}checked{% endif %}>
-                            <label class="form-check-label" for="checkDinner">Dinner QR</label>
+                            <label class="form-check-label" for="checkDinner">Dinner</label>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary mt-3">Update Meal Settings</button>
+                    <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i> Save</button>
                 </form>
             </div>
-        </div>
-        
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-bold">Evaluation Configuration</span>
-                <span class="badge bg-secondary" id="totalPctBadge">Total: 0%</span>
-            </div>
-            <div class="card-body">
-                <div id="configAlert" class="alert d-none"></div>
 
-                <div class="mb-3">
-                    <p class="text-muted small mb-0">Select criteria to enable and assign weightage. Total must be exactly 100%.</p>
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Scoring</div>
+                        <h2 class="text-lg font-semibold">Evaluation rubric builder</h2>
+                        <p class="hh-muted text-sm mt-1">Enable criteria and set weightage. Total must equal 100%.</p>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral" id="totalPctBadge">Total: 0%</span>
                 </div>
+                <div id="configAlert" class="alert d-none"></div>
 
                 <form id="evalConfigForm">
                     {% set all_criteria = ['Innovation', 'Technical Skills', 'UI/UX', 'Practical Use', 'Presentation'] %}
@@ -79,20 +149,19 @@
                                        {% if enabled %}checked{% endif %}
                                        aria-label="Checkbox for {{ name }}">
                             </div>
-                            <span class="input-group-text flex-grow-1 bg-white">{{ name }}</span>
+                            <span class="input-group-text flex-grow-1" style="background: rgba(255,255,255,0.04); color: var(--hh-text);">{{ name }}</span>
                             <input type="number" class="form-control criteria-input" 
                                    placeholder="0" min="0" max="100" 
                                    value="{{ pct if enabled else '' }}"
                                    {% if not enabled %}disabled{% endif %}
                                    style="max-width: 100px;">
-                            <span class="input-group-text">%</span>
+                            <span class="input-group-text" style="background: rgba(255,255,255,0.04); color: var(--hh-muted);">%</span>
                         </div>
                     {% endfor %}
 
-                    <button type="button" id="saveConfigBtn" class="btn btn-primary w-100 mt-3">Save Configuration</button>
+                    <button type="button" id="saveConfigBtn" class="btn btn-primary w-100 mt-3"><i class="bi bi-save me-1"></i> Save Configuration</button>
                 </form>
             </div>
-        </div>
 
         <script>
             document.addEventListener('DOMContentLoaded', function() {
@@ -194,65 +263,74 @@
             });
         </script>
 
-        <div class="card mb-4">
-            <div class="card-header">Problem Statements</div>
-            <div class="card-body">
-                <ul class="list-group mb-3">
+            <div class="hh-card p-4">
+                <div class="text-sm hh-muted">Content</div>
+                <h2 class="text-lg font-semibold">Problem statements</h2>
+                <p class="hh-muted text-sm mt-1">Upload PDFs and control team allocations.</p>
+
+                <ul class="list-group mt-3 mb-3">
                     {% for problem in hackathon.problem_statements %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <li class="list-group-item d-flex justify-content-between align-items-center" style="background: rgba(255,255,255,0.04);">
                         <div>
-                            <strong>{{ problem.title }}</strong>
-                            <br>
+                            <div class="fw-bold">{{ problem.title }}</div>
                             <small class="text-muted">Max Teams: {{ problem.max_team_limit }}</small>
                         </div>
-                        <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="btn btn-sm btn-outline-info">View PDF</a>
+                        <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-filetype-pdf me-1"></i> View PDF</a>
                     </li>
                     {% else %}
-                    <li class="list-group-item text-muted">No problem statements uploaded yet.</li>
+                    <li class="list-group-item text-muted" style="background: rgba(255,255,255,0.04);">No problem statements uploaded yet.</li>
                     {% endfor %}
                 </ul>
 
-                <h5>Upload Problem Statement</h5>
-                <form action="{{ url_for('admin.upload_problem_statement', id=hackathon.id) }}" method="POST" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label>Title</label>
-                        <input type="text" name="title" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label>Max Teams Allowed</label>
-                        <input type="number" name="max_teams" class="form-control" value="50">
-                    </div>
-                    <div class="mb-3">
-                        <label>PDF File</label>
-                        <input type="file" name="pdf_file" class="form-control" accept=".pdf" required>
-                    </div>
-                    <button type="submit" class="btn btn-success">Upload PDF</button>
-                </form>
+                <div class="mt-4 p-3 rounded-xl" style="background: rgba(255,255,255,0.04); border: 1px solid var(--hh-border);">
+                    <div class="font-medium">Upload a new statement</div>
+                    <form action="{{ url_for('admin.upload_problem_statement', id=hackathon.id) }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Title</label>
+                                <input type="text" name="title" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Max Teams Allowed</label>
+                                <input type="number" name="max_teams" class="form-control" value="50">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">PDF File</label>
+                                <input type="file" name="pdf_file" class="form-control" accept=".pdf" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success mt-3"><i class="bi bi-upload me-1"></i> Upload PDF</button>
+                    </form>
+                </div>
             </div>
-        </div>
 
-        <!-- Faculty Assignment Card -->
-        <div class="card mb-4">
-            <div class="card-header fw-bold">Faculty Assignment</div>
-            <div class="card-body">
+            <div class="hh-card p-4">
+                <div class="text-sm hh-muted">People</div>
+                <h2 class="text-lg font-semibold">Faculty assignment</h2>
+                <p class="hh-muted text-sm mt-1">Assign evaluators for this hackathon.</p>
+
                 <div id="facultyAlert" class="alert d-none"></div>
 
-                <div class="mb-3">
-                    <label class="form-label">Assign New Faculty</label>
+                <div class="mt-3">
+                    <label class="form-label">Assign new faculty</label>
                     <div class="input-group">
                         <select id="facultySelect" class="form-select">
                             <option value="">Loading faculty...</option>
                         </select>
-                        <button class="btn btn-primary" id="assignFacultyBtn" type="button">Assign</button>
+                        <button class="btn btn-primary" id="assignFacultyBtn" type="button"><i class="bi bi-person-plus me-1"></i> Assign</button>
                     </div>
                 </div>
 
-                <h6 class="mt-4">Assigned Faculty</h6>
-                <ul class="list-group" id="assignedFacultyList">
-                    <li class="list-group-item text-muted text-center">Loading...</li>
-                </ul>
+                <div class="mt-4">
+                    <h6 class="mb-2">Assigned faculty</h6>
+                    <ul class="list-group" id="assignedFacultyList">
+                        <li class="list-group-item text-muted text-center" style="background: rgba(255,255,255,0.04);">Loading...</li>
+                    </ul>
+                </div>
             </div>
         </div>
+    </div>
+</div>
 
         <script>
             document.addEventListener('DOMContentLoaded', function() {

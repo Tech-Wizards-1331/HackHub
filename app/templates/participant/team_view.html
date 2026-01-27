@@ -1,188 +1,277 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Team: {{ team.name }} <span class="badge bg-info">{{ team.hackathon.name }}</span></h2>
-
-{% if team.leader_id == session.user_id and team.hackathon.status.name == 'REGISTRATION_OPEN' %}
-<div class="alert alert-info">
-    <button class="btn btn-primary" onclick="window.location.href='{{ url_for('participant.find_members', hackathon_id=team.hackathon_id, team_id=team.id) }}'">Find Members</button>
-    <small class="text-muted ms-2">Add solo participants to your team</small>
-</div>
-{% endif %}
-
-<div class="card">
-    <div class="card-header">Members</div>
-    <ul class="list-group list-group-flush">
-        {% for member in team.members %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ member.user.username }} ({{ member.user.full_name }})
-            <div>
-                <span class="badge bg-success">Member</span>
-                {% if team.leader_id == session.user_id and member.user_id != session.user_id %}
-                    <a href="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="btn btn-sm btn-danger">Remove</a>
-                {% endif %}
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-</div>
-
-{% if team.leader_id == session.user_id %}
-    <div class="card mt-4 border-primary">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-qr-code-scan me-2"></i>Team QR Codes</span>
-            <button class="btn btn-sm btn-light text-primary" onclick="fetchTeamQRs()">
-                <i class="bi bi-arrow-clockwise"></i> Refresh
-            </button>
-        </div>
-        <div class="card-body">
-            <div id="qr-loading" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2 text-muted">Loading QR Codes...</p>
-            </div>
-            
-            <div id="qr-display" class="row g-4 d-none">
-                <!-- Populated by JS -->
-            </div>
-            
-            <div id="qr-error" class="alert alert-danger d-none mt-3"></div>
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            fetchTeamQRs();
-        });
-
-        function fetchTeamQRs() {
-            const container = document.getElementById('qr-display');
-            const loading = document.getElementById('qr-loading');
-            const errorDiv = document.getElementById('qr-error');
-            
-            loading.classList.remove('d-none');
-            container.classList.add('d-none');
-            errorDiv.classList.add('d-none');
-            // Clear previous
-            container.innerHTML = '';
-
-            fetch('{{ url_for("participant.get_team_qrs", team_id=team.id) }}')
-                .then(response => {
-                    if (!response.ok) throw new Error("Failed to load QRs");
-                    return response.json();
-                })
-                .then(data => {
-                    loading.classList.add('d-none');
-                    
-                    if (data.status === 'success' && data.qrs.length > 0) {
-                        container.classList.remove('d-none');
-                        
-                        data.qrs.forEach(qr => {
-                            const col = document.createElement('div');
-                            col.className = 'col-md-6 col-lg-4 text-center';
-                            
-                            const card = document.createElement('div');
-                            card.className = 'card h-100 shadow-sm';
-                            
-                            // Visual distinction
-                            let headerClass = 'bg-secondary text-white';
-                            let icon = 'bi-qr-code';
-                            
-                            switch(qr.type) {
-                                case 'ACCESS': 
-                                    headerClass = 'bg-success text-white'; 
-                                    icon = 'bi-pass-fill';
-                                    break;
-                                case 'BREAKFAST':
-                                    headerClass = 'bg-warning text-dark';
-                                    icon = 'bi-cup-hot-fill';
-                                    break;
-                                case 'LUNCH':
-                                    headerClass = 'bg-info text-dark';
-                                    icon = 'bi-sun-fill';
-                                    break;
-                                case 'DINNER':
-                                    headerClass = 'bg-danger text-white';
-                                    icon = 'bi-moon-stars-fill';
-                                    break;
-                            }
-                            
-                            card.innerHTML = `
-                                <div class="card-header ${headerClass} fw-bold">
-                                    <i class="bi ${icon} me-2"></i> ${qr.type}
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3 d-flex align-items-center justify-content-center bg-light rounded p-2" style="min-height: 220px;">
-                                        <img src="${qr.url}" alt="${qr.type} QR" class="img-fluid" style="max-height: 200px;">
-                                    </div>
-                                    <a href="${qr.url}" download="${qr.download_name}" class="btn btn-outline-dark w-100">
-                                        <i class="bi bi-download me-2"></i>Download
-                                    </a>
-                                </div>
-                            `;
-                            
-                            col.appendChild(card);
-                            container.appendChild(col);
-                        });
-                    } else {
-                        errorDiv.textContent = "No QRs found for this team.";
-                        errorDiv.classList.remove('d-none');
-                    }
-                })
-                .catch(err => {
-                    loading.classList.add('d-none');
-                    errorDiv.textContent = err.message || "Error loading QR codes";
-                    errorDiv.classList.remove('d-none');
-                });
-        }
-    </script>
-{% endif %}
-
-{% if team.hackathon.status.name == 'PROBLEM_SELECTION' %}
-    <div class="card mt-4">
-        <div class="card-header bg-warning">Problem Statement Selection</div>
-        <div class="card-body">
-            {% if team.problem_statement %}
-                <div class="alert alert-success">
-                    <h5 class="alert-heading">Selected: {{ team.problem_statement.title }}</h5>
-                    <p>Your team has committed to this problem statement.</p>
-                    <hr>
-                    <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="btn btn-outline-success">View PDF</a>
-                </div>
-            {% elif team.leader_id == session.user_id %}
-                <p>Please select a problem statement for your team.</p>
-                <div class="list-group">
-                {# Use available_problems passed from route #}
-                {% for problem in available_problems %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="mb-1">{{ problem.title }}</h5>
-                            <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="text-decoration-none">View PDF</a>
-                        </div>
-                        
-                        <form action="{{ url_for('participant.select_problem', hackathon_id=team.hackathon.id) }}" method="POST">
-                            <input type="hidden" name="problem_id" value="{{ problem.id }}">
-                            <button type="submit" class="btn btn-primary">Select</button>
-                        </form>
-                    </div>
-                {% else %}
-                    <div class="alert alert-secondary">No available problem statements found.</div>
-                {% endfor %}
-                </div>
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-3 mb-5">
+    <div>
+        <div class="flex items-center gap-2 mb-2">
+            <span class="hh-badge hh-badge--info"><i class="bi bi-people"></i> Team</span>
+            <span class="hh-badge hh-badge--neutral"><i class="bi bi-flag"></i> {{ team.hackathon.name }}</span>
+            {% if team.leader_id == session.user_id %}
+                <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader</span>
             {% else %}
-                <div class="alert alert-info">Waiting for Team Leader to select a problem statement.</div>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-person"></i> Member</span>
             {% endif %}
         </div>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">{{ team.name }}</h2>
+        <div class="hh-muted mt-1">Manage members, QR access, and your problem statement.</div>
     </div>
-{% endif %}
 
-{% if team.problem_statement and team.hackathon.status.name != 'PROBLEM_SELECTION' %}
-    <div class="card mt-4">
-        <div class="card-header">Your Problem Statement</div>
-        <div class="card-body">
-            <h4>{{ team.problem_statement.title }}</h4>
-            <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="btn btn-outline-primary">View PDF</a>
-        </div>
+    <div class="flex items-center gap-2">
+        {% if team.leader_id == session.user_id and team.hackathon.status.name == 'REGISTRATION_OPEN' %}
+            <a class="hh-btn hh-btn-primary" href="{{ url_for('participant.find_members', hackathon_id=team.hackathon_id, team_id=team.id) }}">
+                <i class="bi bi-person-plus"></i> Find Members
+            </a>
+        {% endif %}
     </div>
-{% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="hh-card hh-card-hover">
+            <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm hh-muted">Roster</div>
+                        <div class="text-lg font-semibold"><i class="bi bi-people-fill me-2"></i>Members</div>
+                    </div>
+                    <span class="hh-pill"><i class="bi bi-hash"></i> {{ team.members|length }}</span>
+                </div>
+            </div>
+            <div class="p-3 sm:p-4 overflow-x-auto">
+                <table class="hh-table">
+                    <thead>
+                        <tr>
+                            <th>Participant</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in team.members %}
+                        <tr>
+                            <td>
+                                <div class="font-medium">{{ member.user.username }}</div>
+                                <div class="hh-muted text-sm">{{ member.user.full_name }}</div>
+                            </td>
+                            <td>
+                                {% if member.user_id == team.leader_id %}
+                                    <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader</span>
+                                {% else %}
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-person"></i> Member</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if team.leader_id == session.user_id and member.user_id != session.user_id %}
+                                    <a href="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="hh-btn hh-btn-danger"
+                                       onclick="return confirm('Remove this member from the team?')">
+                                        <i class="bi bi-person-dash"></i> Remove
+                                    </a>
+                                {% else %}
+                                    <span class="hh-muted text-sm">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if team.problem_statement and team.hackathon.status.name != 'PROBLEM_SELECTION' %}
+            <div class="hh-card hh-card-hover mt-4">
+                <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                    <div class="text-sm hh-muted">Committed</div>
+                    <div class="text-lg font-semibold"><i class="bi bi-file-earmark-text me-2"></i>Your Problem Statement</div>
+                </div>
+                <div class="p-4">
+                    <div class="font-semibold">{{ team.problem_statement.title }}</div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="hh-btn hh-btn-primary">
+                            <i class="bi bi-box-arrow-up-right"></i> View PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-5">
+        {% if team.leader_id == session.user_id %}
+            <div class="hh-card hh-card-hover">
+                <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm hh-muted">Access</div>
+                            <div class="text-lg font-semibold"><i class="bi bi-qr-code-scan me-2"></i>Team QR Codes</div>
+                        </div>
+                        <button class="hh-btn" type="button" onclick="fetchTeamQRs()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div id="qr-loading" class="text-center py-6">
+                        <div class="hh-skeleton" style="height: 14px; width: 180px; margin: 0 auto;"></div>
+                        <div class="hh-skeleton mt-3" style="height: 220px; width: 100%;"></div>
+                        <div class="hh-muted mt-3">Loading QR Codes…</div>
+                    </div>
+
+                    <div id="qr-display" class="grid gap-3 d-none">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div id="qr-error" class="hh-card p-3 d-none mt-3" style="border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10);"></div>
+                    <div class="hh-muted text-sm mt-3">Tip: download QRs for backup access.</div>
+                </div>
+            </div>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    fetchTeamQRs();
+                });
+
+                function fetchTeamQRs() {
+                    const container = document.getElementById('qr-display');
+                    const loading = document.getElementById('qr-loading');
+                    const errorDiv = document.getElementById('qr-error');
+
+                    loading.classList.remove('d-none');
+                    container.classList.add('d-none');
+                    errorDiv.classList.add('d-none');
+                    container.innerHTML = '';
+
+                    fetch('{{ url_for("participant.get_team_qrs", team_id=team.id) }}')
+                        .then(response => {
+                            if (!response.ok) throw new Error('Failed to load QRs');
+                            return response.json();
+                        })
+                        .then(data => {
+                            loading.classList.add('d-none');
+
+                            if (data.status === 'success' && data.qrs.length > 0) {
+                                container.classList.remove('d-none');
+
+                                data.qrs.forEach(qr => {
+                                    const wrap = document.createElement('div');
+                                    wrap.className = 'hh-card hh-card-hover p-4';
+
+                                    let badgeClass = 'hh-badge--neutral';
+                                    let icon = 'bi-qr-code';
+                                    let label = qr.type;
+
+                                    switch (qr.type) {
+                                        case 'ACCESS':
+                                            badgeClass = 'hh-badge--success';
+                                            icon = 'bi-pass-fill';
+                                            label = 'Access';
+                                            break;
+                                        case 'BREAKFAST':
+                                            badgeClass = 'hh-badge--warn';
+                                            icon = 'bi-cup-hot-fill';
+                                            label = 'Breakfast';
+                                            break;
+                                        case 'LUNCH':
+                                            badgeClass = 'hh-badge--info';
+                                            icon = 'bi-sun-fill';
+                                            label = 'Lunch';
+                                            break;
+                                        case 'DINNER':
+                                            badgeClass = 'hh-badge--danger';
+                                            icon = 'bi-moon-stars-fill';
+                                            label = 'Dinner';
+                                            break;
+                                    }
+
+                                    wrap.innerHTML = `
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div class="text-sm hh-muted">QR Type</div>
+                                                <div class="font-semibold"><i class="bi ${icon} me-2"></i>${label}</div>
+                                            </div>
+                                            <span class="hh-badge ${badgeClass}"><i class="bi bi-shield-check"></i> Ready</span>
+                                        </div>
+                                        <div class="mt-4 rounded-2xl p-3" style="background: rgba(255,255,255,0.06); border: 1px solid var(--hh-border);">
+                                            <div class="flex items-center justify-center" style="min-height: 220px;">
+                                                <img src="${qr.url}" alt="${qr.type} QR" class="img-fluid" style="max-height: 210px;">
+                                            </div>
+                                        </div>
+                                        <div class="mt-4 flex gap-2">
+                                            <a href="${qr.url}" download="${qr.download_name}" class="hh-btn hh-btn-primary" style="flex: 1;">
+                                                <i class="bi bi-download"></i> Download
+                                            </a>
+                                            <button type="button" class="hh-btn" onclick="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Tip: show this QR at the desk', 'info') : null">
+                                                <i class="bi bi-info-circle"></i>
+                                            </button>
+                                        </div>
+                                    `;
+
+                                    container.appendChild(wrap);
+                                });
+                            } else {
+                                errorDiv.textContent = 'No QRs found for this team.';
+                                errorDiv.classList.remove('d-none');
+                            }
+                        })
+                        .catch(err => {
+                            loading.classList.add('d-none');
+                            errorDiv.textContent = err.message || 'Error loading QR codes';
+                            errorDiv.classList.remove('d-none');
+                        });
+                }
+            </script>
+        {% endif %}
+
+        {% if team.hackathon.status.name == 'PROBLEM_SELECTION' %}
+            <div class="hh-card hh-card-hover">
+                <div class="p-4 border-b" style="border-color: var(--hh-border);">
+                    <div class="text-sm hh-muted">Hackathon stage</div>
+                    <div class="text-lg font-semibold"><i class="bi bi-journal-check me-2"></i>Problem Statement Selection</div>
+                </div>
+                <div class="p-4">
+                    {% if team.problem_statement %}
+                        <div class="hh-card p-4" style="border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.10);">
+                            <div class="font-semibold">Selected: {{ team.problem_statement.title }}</div>
+                            <div class="hh-muted mt-1">Your team is committed to this problem statement.</div>
+                            <div class="mt-3">
+                                <a href="{{ url_for('static', filename=team.problem_statement.pdf_file_path) }}" target="_blank" class="hh-btn hh-btn-primary">
+                                    <i class="bi bi-box-arrow-up-right"></i> View PDF
+                                </a>
+                            </div>
+                        </div>
+                    {% elif team.leader_id == session.user_id %}
+                        <div class="hh-muted">Choose one problem statement to commit your team.</div>
+                        <div class="grid gap-3 mt-4">
+                            {% for problem in available_problems %}
+                                <div class="hh-card hh-card-hover p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="font-semibold">{{ problem.title }}</div>
+                                            <a href="{{ url_for('static', filename=problem.pdf_file_path) }}" target="_blank" class="hh-muted text-sm" style="text-decoration: underline;">
+                                                View PDF
+                                            </a>
+                                        </div>
+                                        <form action="{{ url_for('participant.select_problem', hackathon_id=team.hackathon.id) }}" method="POST">
+                                            <input type="hidden" name="problem_id" value="{{ problem.id }}">
+                                            <button type="submit" class="hh-btn hh-btn-primary">
+                                                <i class="bi bi-check2"></i> Select
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="hh-card p-4">
+                                    <div class="hh-muted">No available problem statements found.</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="hh-card p-4" style="border-color: rgba(56,189,248,0.35); background: rgba(56,189,248,0.10);">
+                            <div class="font-semibold">Waiting for your leader</div>
+                            <div class="hh-muted mt-1">The team leader will select a problem statement.</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
