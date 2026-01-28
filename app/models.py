@@ -111,6 +111,11 @@ class Evaluation(db.Model):
     hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
     faculty_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Legacy/compat fields (some existing DBs require these)
+    stage_id = db.Column(db.Integer, nullable=False, default=1)
+    score = db.Column(db.Float, nullable=False, default=0.0)
+    comments = db.Column(db.Text, nullable=True)
     
     innovation_score = db.Column(db.Integer, nullable=True) # made nullable to support flexible criteria
     technical_score = db.Column(db.Integer, nullable=True)

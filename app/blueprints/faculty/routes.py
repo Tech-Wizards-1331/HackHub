@@ -125,6 +125,8 @@ def evaluate_team(team_id):
                 hackathon_id=team.hackathon_id,
                 team_id=team.id,
                 faculty_id=session['user_id'],
+                stage_id=1,
+                score=float(total_score),
                 innovation_score=innovation,
                 technical_score=technical,
                 uiux_score=uiux,
