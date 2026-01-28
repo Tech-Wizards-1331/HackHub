@@ -1,6 +1,7 @@
 from flask import Flask
 from config import Config
 from .extensions import db, sess
+from sqlalchemy import text
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -31,5 +32,71 @@ def create_app(config_class=Config):
         
     with app.app_context():
         db.create_all()
+
+        # Lightweight SQLite schema migration for existing local DBs.
+        # `create_all()` will not add new columns to existing tables.
+        try:
+            uri = app.config.get('SQLALCHEMY_DATABASE_URI', '') or ''
+            if uri.startswith('sqlite:'):
+                # Ensure users.created_at exists (needed for registration trends).
+                user_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(users)')).all()]
+                if 'created_at' not in user_cols:
+                    db.session.execute(text('ALTER TABLE users ADD COLUMN created_at DATETIME'))
+                    db.session.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
+                    db.session.commit()
+
+                cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(faculty_assignments)')).all()]
+                if 'assigned_at' not in cols:
+                    db.session.execute(text('ALTER TABLE faculty_assignments ADD COLUMN assigned_at DATETIME'))
+                    db.session.commit()
+
+                # Legacy schema compatibility: older DBs may have an `evaluations` table
+                # without the newer columns used by the app.
+                eval_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(evaluations)')).all()]
+                missing = []
+                desired = {
+                    'hackathon_id': 'INTEGER',
+                    'innovation_score': 'INTEGER',
+                    'technical_score': 'INTEGER',
+                    'uiux_score': 'INTEGER',
+                    'practicality_score': 'INTEGER',
+                    'presentation_score': 'INTEGER',
+                    'total_score': 'FLOAT',
+                    'created_at': 'DATETIME',
+                }
+                for name, col_type in desired.items():
+                    if name not in eval_cols:
+                        missing.append((name, col_type))
+
+                for name, col_type in missing:
+                    db.session.execute(text(f'ALTER TABLE evaluations ADD COLUMN {name} {col_type}'))
+
+                # Backfill: derive hackathon_id from teams where possible.
+                if 'hackathon_id' in [n for n, _ in missing] or 'hackathon_id' in eval_cols:
+                    try:
+                        team_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(teams)')).all()]
+                        if 'hackathon_id' in team_cols and 'team_id' in eval_cols:
+                            db.session.execute(text('''
+                                UPDATE evaluations
+                                SET hackathon_id = (
+                                    SELECT teams.hackathon_id FROM teams WHERE teams.id = evaluations.team_id
+                                )
+                                WHERE hackathon_id IS NULL
+                            '''))
+                    except Exception:
+                        pass
+
+                # Backfill: if legacy `score` exists, copy into `total_score` for results display.
+                if 'score' in eval_cols:
+                    try:
+                        db.session.execute(text('UPDATE evaluations SET total_score = score WHERE total_score IS NULL'))
+                    except Exception:
+                        pass
+
+                if missing:
+                    db.session.commit()
+        except Exception:
+            # If migration fails, don't prevent app from starting; route handlers will surface issues.
+            db.session.rollback()
         
     return app

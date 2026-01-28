@@ -328,6 +328,44 @@
                     </ul>
                 </div>
             </div>
+
+            <div class="hh-card p-4">
+                <div class="text-sm hh-muted">Analytics</div>
+                <h2 class="text-lg font-semibold">Trends & live activity</h2>
+                <p class="hh-muted text-sm mt-1">Powered by <span class="font-medium">/api/analytics</span> (admin-only).</p>
+
+                <div class="mt-4 grid gap-3">
+                    <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-sm font-medium">Registrations</div>
+                            <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> last 7d</span>
+                        </div>
+                        <div class="relative" style="height: 160px;">
+                            <canvas id="hh-manage-chart-registrations"></canvas>
+                        </div>
+                    </div>
+                    <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-sm font-medium">Attendance</div>
+                            <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> event day</span>
+                        </div>
+                        <div class="relative" style="height: 160px;">
+                            <canvas id="hh-manage-chart-attendance"></canvas>
+                        </div>
+                        <div class="hh-muted text-xs mt-2" id="hh-manage-attendance-note"></div>
+                    </div>
+                    <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-sm font-medium">Evaluations</div>
+                            <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> live</span>
+                        </div>
+                        <div class="relative" style="height: 160px;">
+                            <canvas id="hh-manage-chart-evaluations"></canvas>
+                        </div>
+                    </div>
+                    <div class="hh-muted text-xs" id="hh-manage-analytics-status" aria-live="polite"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -442,6 +480,181 @@
                 
                 // Initial Load
                 fetchFaculty();
+            });
+        </script>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const hackathonId = {{ hackathon.id }};
+
+                const statusEl = document.getElementById('hh-manage-analytics-status');
+                const attendanceNoteEl = document.getElementById('hh-manage-attendance-note');
+
+                const regCanvas = document.getElementById('hh-manage-chart-registrations');
+                const attCanvas = document.getElementById('hh-manage-chart-attendance');
+                const evalCanvas = document.getElementById('hh-manage-chart-evaluations');
+
+                if (!regCanvas || !attCanvas || !evalCanvas || !window.Chart) return;
+
+                const chartColors = {
+                    text: 'rgba(229,231,235,0.9)',
+                    grid: 'rgba(255,255,255,0.08)',
+                    purple: 'rgba(124,58,237,0.95)',
+                    blue: 'rgba(56,189,248,0.95)',
+                    green: 'rgba(34,197,94,0.95)',
+                    amber: 'rgba(245,158,11,0.95)'
+                };
+
+                const baseOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(2,6,23,0.92)',
+                            borderColor: 'rgba(255,255,255,0.10)',
+                            borderWidth: 1,
+                            titleColor: chartColors.text,
+                            bodyColor: chartColors.text
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, maxRotation: 0 } },
+                        y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text }, beginAtZero: true }
+                    }
+                };
+
+                function setStatus(text) {
+                    if (statusEl) statusEl.textContent = text || '';
+                }
+
+                let regChart = null;
+                let attChart = null;
+                let evalChart = null;
+
+                async function loadAnalytics() {
+                    setStatus('Loading analytics…');
+
+                    const url = `/api/analytics/hackathon/${encodeURIComponent(hackathonId)}/summary`;
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!resp.ok) {
+                        const msg = resp.status === 403
+                            ? 'Unauthorized (admin session required).'
+                            : `Failed to load analytics (HTTP ${resp.status}).`;
+                        setStatus(msg);
+                        return;
+                    }
+
+                    const data = await resp.json();
+
+                    // Registrations
+                    const reg = data.registrations_last_7d || { labels: [], series: {} };
+                    const regLabels = reg.labels || [];
+                    const series = reg.series || {};
+                    const accountsTotal = series.accounts_total || [];
+                    const teamsRegistered = series.teams_registered || [];
+
+                    if (regChart) regChart.destroy();
+                    regChart = new Chart(regCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: regLabels,
+                            datasets: [
+                                {
+                                    label: 'Accounts',
+                                    data: accountsTotal,
+                                    borderColor: chartColors.purple,
+                                    backgroundColor: 'rgba(124,58,237,0.12)',
+                                    tension: 0.35,
+                                    fill: true,
+                                    pointRadius: 0
+                                },
+                                {
+                                    label: 'Teams',
+                                    data: teamsRegistered,
+                                    borderColor: chartColors.green,
+                                    backgroundColor: 'rgba(34,197,94,0.08)',
+                                    tension: 0.35,
+                                    fill: true,
+                                    pointRadius: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            ...baseOptions,
+                            plugins: { ...baseOptions.plugins, legend: { display: true, labels: { color: chartColors.text, boxWidth: 10 } } },
+                            scales: {
+                                ...baseOptions.scales,
+                                x: { ...baseOptions.scales.x, ticks: { ...baseOptions.scales.x.ticks, callback: (v) => {
+                                    const label = regLabels[v] || '';
+                                    return label.slice(5);
+                                } } }
+                            }
+                        }
+                    });
+
+                    // Attendance (2-bar)
+                    const att = data.attendance_event_day || {};
+                    if (attChart) attChart.destroy();
+                    attChart = new Chart(attCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Unique', 'Total Scans'],
+                            datasets: [
+                                {
+                                    label: 'Attendance',
+                                    data: [att.checked_in_unique ?? 0, att.checked_in_total_scans ?? 0],
+                                    backgroundColor: ['rgba(56,189,248,0.35)', 'rgba(56,189,248,0.18)'],
+                                    borderColor: [chartColors.blue, chartColors.blue],
+                                    borderWidth: 1,
+                                    borderRadius: 10
+                                }
+                            ]
+                        },
+                        options: { ...baseOptions, plugins: { ...baseOptions.plugins, legend: { display: false } } }
+                    });
+
+                    if (attendanceNoteEl) {
+                        attendanceNoteEl.textContent = att.event_date
+                            ? `Event date: ${att.event_date}`
+                            : 'Set hackathon start date to enable event-day attendance.';
+                    }
+
+                    // Evaluations live
+                    const evals = data.evaluations_live || {};
+                    const evalLabels = evals.labels || [];
+                    const evalSeries = (evals.series && evals.series.evaluations_submitted) ? evals.series.evaluations_submitted : [];
+                    if (evalChart) evalChart.destroy();
+                    evalChart = new Chart(evalCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: evalLabels,
+                            datasets: [
+                                {
+                                    label: 'Evaluations',
+                                    data: evalSeries,
+                                    borderColor: chartColors.amber,
+                                    backgroundColor: 'rgba(245,158,11,0.14)',
+                                    tension: 0.35,
+                                    fill: true,
+                                    pointRadius: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            ...baseOptions,
+                            scales: {
+                                ...baseOptions.scales,
+                                x: { ...baseOptions.scales.x, ticks: { ...baseOptions.scales.x.ticks, maxTicksLimit: 8 } }
+                            }
+                        }
+                    });
+
+                    setStatus(`Updated: ${data.generated_at || ''}`);
+                }
+
+                loadAnalytics().catch(() => setStatus('Failed to load analytics.'));
             });
         </script>
     </div>

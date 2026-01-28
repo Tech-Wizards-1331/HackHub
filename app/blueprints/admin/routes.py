@@ -167,8 +167,16 @@ def results(hackathon_id):
     for team in teams:
         evals = Evaluation.query.filter_by(team_id=team.id).all()
         if evals:
-            # Average of all faculty total_scores
-            avg_score = sum(e.total_score for e in evals) / len(evals)
+            # Average of all faculty scores.
+            # Supports both new schema (`total_score`) and legacy schema (`score`).
+            scores = []
+            for e in evals:
+                val = getattr(e, 'total_score', None)
+                if val is None:
+                    val = getattr(e, 'score', None)
+                if val is not None:
+                    scores.append(float(val))
+            avg_score = (sum(scores) / len(scores)) if scores else 0
         else:
             avg_score = 0
             

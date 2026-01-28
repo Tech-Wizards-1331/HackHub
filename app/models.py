@@ -25,6 +25,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.Enum(UserRole), nullable=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Profile fields
     full_name = db.Column(db.String(100))
