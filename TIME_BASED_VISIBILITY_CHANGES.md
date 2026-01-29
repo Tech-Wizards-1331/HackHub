@@ -330,7 +330,6 @@ flask db upgrade
    - Countdown timer when meal is coming soon
 7. **→ Test with real data**
 8. **→ Deploy**
-
 ---
 
 **Status**: ✅ Backend Implementation Complete  
