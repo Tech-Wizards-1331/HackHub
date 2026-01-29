@@ -978,6 +978,103 @@ html[data-theme="light"] .hh-auth .input-group-text.hh-auth-icon {
   100% { background-position: -200% 0; }
 }
 
+/* ==================== MOBILE-FIRST RESPONSIVE ENHANCEMENTS ==================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+input, select, textarea, button,
+.hh-btn, .btn {
+  min-height: 44px;
+}
+
+.form-control, .form-select, .hh-input, .hh-select, .hh-textarea {
+  min-height: 44px;
+}
+
+/* Prevent horizontal scroll on small devices */
+body {
+  overflow-x: hidden;
+}
+
+/* Table responsiveness */
+@media (max-width: 768px) {
+  .hh-table,
+  .table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hh-table thead th,
+  .hh-table tbody td,
+  .table thead th,
+  .table tbody td {
+    white-space: nowrap;
+  }
+}
+
+/* Mobile spacing + stacking */
+@media (max-width: 640px) {
+  .hh-card .p-5 { padding: 1.25rem !important; }
+  .hh-card .p-4,
+  .hh-glass .p-4 { padding: 1rem !important; }
+  .hh-card .p-3 { padding: 0.75rem !important; }
+
+  form .d-flex.gap-2,
+  form .d-flex.gap-2.flex-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  form .hh-btn,
+  form .btn {
+    width: 100%;
+  }
+
+  .hh-btn,
+  .btn {
+    width: auto;
+  }
+
+  .hh-toasts {
+    right: 1rem;
+    top: 1rem;
+    width: calc(100vw - 2rem);
+  }
+}
+
+/* Typography scaling for small screens */
+@media (max-width: 480px) {
+  h1 { font-size: 1.65rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.2rem; }
+  .text-2xl { font-size: 1.35rem !important; }
+  .text-3xl { font-size: 1.6rem !important; }
+}
+
+/* Tablet adjustments */
+@media (min-width: 600px) and (max-width: 900px) {
+  .hh-card .p-4,
+  .hh-glass .p-4 { padding: 1.25rem !important; }
+}
+
+/* Desktop refinements */
+@media (min-width: 1024px) {
+  .hh-card-hover:hover { transform: translateY(-6px); }
+}
+
+/* Reduced motion for performance and accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
