@@ -65,12 +65,6 @@ class Hackathon(db.Model):
     enable_lunch = db.Column(db.Boolean, default=False)
     enable_dinner = db.Column(db.Boolean, default=False)
     
-    # Meal Times (duration: start_time to start_time + 1 hour)
-    # Format: HH:MM (24-hour format), relative to hackathon start_date
-    breakfast_time = db.Column(db.String(5), nullable=True)  # e.g., "07:00"
-    lunch_time = db.Column(db.String(5), nullable=True)      # e.g., "12:30"
-    dinner_time = db.Column(db.String(5), nullable=True)     # e.g., "18:00"
-    
     teams = db.relationship('Team', backref='hackathon', lazy=True)
     problem_statements = db.relationship('ProblemStatement', backref='hackathon', lazy=True)
 
@@ -179,95 +173,4 @@ class TeamMealUsage(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('team_id', 'meal_type', 'usage_date', name='uq_team_meal_daily_usage'),
-    )
-
-
-class QRFoodTicketStatus(enum.Enum):
-    """Status of a food ticket QR code"""
-    ACTIVE = 'ACTIVE'          # Valid and ready to scan
-    USED = 'USED'              # Already scanned (ticket consumed)
-    EXPIRED = 'EXPIRED'        # Past hackathon end date or invalidated
-    REVOKED = 'REVOKED'        # Manually invalidated by admin
-
-
-class QRFoodTicket(db.Model):
-    """
-    QR-based food ticket for team members.
-    Each team member gets a unique QR code per meal type.
-    Status transitions: ACTIVE -> USED -> (next ACTIVE generated)
-    """
-    __tablename__ = 'qr_food_tickets'
-    id = db.Column(db.Integer, primary_key=True)
-    
-    # Core relationships (reuse existing identifiers)
-    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
-    team_member_id = db.Column(db.Integer, db.ForeignKey('team_members.id'), nullable=False)
-    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
-    
-    # QR metadata
-    qr_token = db.Column(db.String(256), unique=True, nullable=False)  # Unique per ticket
-    meal_type = db.Column(db.String(20), nullable=False)  # BREAKFAST, LUNCH, DINNER
-    status = db.Column(db.Enum(QRFoodTicketStatus), default=QRFoodTicketStatus.ACTIVE, nullable=False)
-    
-    # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    scanned_at = db.Column(db.DateTime, nullable=True)  # When this ticket was used
-    expires_at = db.Column(db.DateTime, nullable=True)  # When ticket becomes invalid
-    
-    # Relationships
-    team_member = db.relationship('TeamMember', backref='food_tickets')
-    hackathon = db.relationship('Hackathon', backref='food_tickets')
-    
-    __table_args__ = (
-        # Ensure only ONE active ticket per team member per meal type
-        db.UniqueConstraint(
-            'team_member_id',
-            'meal_type',
-            'status',
-            name='uq_active_ticket_per_member_meal'
-        ),
-        # Index for fast QR token lookups
-        db.Index('ix_qr_token', 'qr_token'),
-        # Index for finding active tickets
-        db.Index('ix_meal_status_active', 'meal_type', 'status'),
-    )
-
-
-class QRScanLog(db.Model):
-    """
-    Audit log for all QR scan attempts (success or failure).
-    Prevents double-scanning and provides complete audit trail.
-    """
-    __tablename__ = 'qr_scan_logs'
-    id = db.Column(db.Integer, primary_key=True)
-    
-    # References
-    qr_ticket_id = db.Column(db.Integer, db.ForeignKey('qr_food_tickets.id'), nullable=False)
-    team_member_id = db.Column(db.Integer, db.ForeignKey('team_members.id'), nullable=False)
-    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
-    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
-    
-    # Scanner information (who scanned this)
-    scanned_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Nullable for QR kiosk
-    
-    # Scan details
-    scan_status = db.Column(db.String(20), nullable=False)  # SUCCESS, ALREADY_USED, INVALID_TOKEN, EXPIRED, etc
-    scan_reason = db.Column(db.String(255), nullable=True)  # Error message if failed
-    scanned_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    qr_ticket = db.relationship('QRFoodTicket', backref='scan_logs')
-    team_member = db.relationship('TeamMember', backref='qr_scans')
-    scanned_by_user = db.relationship('User', backref='scanned_qrs')
-    
-    __table_args__ = (
-        # Ensure single successful scan per ticket (idempotency)
-        db.UniqueConstraint(
-            'qr_ticket_id',
-            'scan_status',
-            name='uq_one_success_per_ticket'
-        ),
-        # Index for audit queries
-        db.Index('ix_scan_timestamp', 'scanned_at'),
-        db.Index('ix_scan_status', 'scan_status'),
     )
