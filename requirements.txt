@@ -4,5 +4,6 @@ flask-session
 pymysql
 qrcode
 pillow
-werkzeugpytest
+werkzeug
+pytest
 pytest-cov
