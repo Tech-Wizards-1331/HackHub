@@ -111,6 +111,20 @@ class TeamMember(db.Model):
     
     user = db.relationship('User', backref='team_memberships')
 
+class TeamJoinRequest(db.Model):
+    __tablename__ = 'team_join_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    status = db.Column(db.String(20), default='PENDING', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    responded_at = db.Column(db.DateTime, nullable=True)
+
+    team = db.relationship('Team', backref='join_requests')
+    user = db.relationship('User', foreign_keys=[user_id], backref='team_join_requests')
+    requested_by = db.relationship('User', foreign_keys=[requested_by_id])
+
 class Evaluation(db.Model):
     __tablename__ = 'evaluations'
     id = db.Column(db.Integer, primary_key=True)

@@ -1,40 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="w-100 flex justify-center py-10">
-    <div class="w-100" style="max-width: 960px;">
-        <div class="hh-glass overflow-hidden">
+<div class="w-100 flex justify-center py-8 sm:py-10 hh-auth px-4">
+    <div class="w-100" style="max-width: 760px;">
+        <div class="hh-glass overflow-hidden hh-auth-card">
             <div class="row g-0">
                 <!-- Left Side: Visuals (kept, but lighter + only on xl for balance) -->
-                <div class="col-xl-5 d-none d-xl-flex flex-column align-items-center justify-content-center p-4 text-center text-white position-relative overflow-hidden" style="background: linear-gradient(135deg, rgba(124,58,237,0.95) 0%, rgba(99,102,241,0.85) 100%);">
-                    <div style="position: absolute; width: 260px; height: 260px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.18); top: -60px; left: -70px;"></div>
-                    <div style="position: absolute; width: 340px; height: 340px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.10); bottom: -120px; right: -120px;"></div>
+                <div class="col-xl-5 d-none d-xl-flex flex-column align-items-center justify-content-center p-4 text-center text-white position-relative overflow-hidden" style="background: linear-gradient(135deg, rgba(124,58,237,0.82) 0%, rgba(99,102,241,0.72) 100%);">
+                    <div style="position: absolute; width: 220px; height: 220px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.16); top: -50px; left: -60px;"></div>
+                    <div style="position: absolute; width: 300px; height: 300px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); bottom: -110px; right: -110px;"></div>
 
                     <div class="position-relative z-1">
-                        <div class="mb-3" style="opacity: 0.75;"><i class="bi bi-shield-lock-fill" style="font-size: 2.6rem;"></i></div>
-                        <h2 class="fw-bold mb-2" style="font-size: 1.55rem;">Welcome back</h2>
-                        <p class="mb-0" style="opacity: 0.8; font-size: 0.95rem;">Sign in to access your HackHub dashboard.</p>
+                        <div class="mb-3" style="opacity: 0.75;"><i class="bi bi-shield-lock-fill" style="font-size: 2.3rem;"></i></div>
+                        <h2 class="fw-bold mb-2" style="font-size: 1.28rem;">Welcome back</h2>
+                        <p class="mb-0" style="opacity: 0.9; font-size: 0.9rem;">Sign in to access your HackHub dashboard.</p>
                     </div>
                 </div>
 
                 <!-- Right Side: Form -->
-                <div class="col-12 col-xl-7 p-4 p-sm-5">
-                    <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+                <div class="col-12 col-xl-7 p-4 p-sm-4">
+                    <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="w-10 h-10 rounded-2xl flex items-center justify-content-center" style="background: rgba(124,58,237,0.16); border: 1px solid rgba(124,58,237,0.22);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-content-center" style="background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.2);">
                                 <i class="bi bi-box-arrow-in-right"></i>
                             </div>
                             <div>
-                                <div class="fw-bold" style="font-size: 1.25rem;">Login</div>
-                                <div class="hh-muted" style="font-size: 0.92rem;">Use your email and password.</div>
+                                <div class="fw-bold" style="font-size: 1.08rem; letter-spacing: -0.01em;">Login</div>
+                                <div class="hh-muted" style="font-size: 0.9rem;">Use your email and password.</div>
                             </div>
                         </div>
                     </div>
 
-                    <form method="POST" class="grid gap-3" style="max-width: 520px;">
+                    <form method="POST" class="grid gap-3" style="max-width: 460px;">
                         <div>
-                            <label class="form-label mb-1" style="font-weight: 600;">Email</label>
+                            <label class="form-label mb-1 hh-auth-label">Email</label>
                             <div class="input-group">
-                                <span class="input-group-text" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
+                                <span class="input-group-text hh-auth-icon" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
                                     <i class="bi bi-envelope"></i>
                                 </span>
                                 <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
@@ -42,9 +42,9 @@
                         </div>
 
                         <div>
-                            <label class="form-label mb-1" style="font-weight: 600;">Password</label>
+                            <label class="form-label mb-1 hh-auth-label">Password</label>
                             <div class="input-group">
-                                <span class="input-group-text" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
+                                <span class="input-group-text hh-auth-icon" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
                                     <i class="bi bi-key"></i>
                                 </span>
                                 <input type="password" name="password" class="form-control" placeholder="••••••••" required>
@@ -54,19 +54,19 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="rememberMe">
-                                <label class="form-check-label" for="rememberMe" style="font-size: 0.92rem; color: var(--hh-muted);">Remember me</label>
+                                <label class="form-check-label" for="rememberMe" style="font-size: 0.92rem; color: var(--hh-muted); font-weight: 500;">Remember me</label>
                             </div>
-                            <a href="#" class="text-decoration-none" style="font-size: 0.92rem; color: var(--hh-brand); font-weight: 600;">Forgot password?</a>
+                            <a href="#" class="text-decoration-none hh-auth-link" style="font-size: 0.9rem; font-weight: 700;">Forgot password?</a>
                         </div>
 
-                        <button type="submit" class="hh-btn hh-btn-primary w-100 justify-center" style="padding: 0.65rem 0.9rem;">
+                        <button type="submit" class="hh-btn hh-btn-primary w-100 justify-center">
                             Sign In
                             <i class="bi bi-arrow-right-short"></i>
                         </button>
 
                         <div class="text-center pt-2">
-                            <div class="hh-muted" style="font-size: 0.92rem;">Don't have an account?</div>
-                            <a href="{{ url_for('auth.register') }}" class="text-decoration-none" style="color: var(--hh-brand); font-weight: 700;">Create New Account</a>
+                            <div class="hh-muted" style="font-size: 0.9rem;">Don't have an account?</div>
+                            <a href="{{ url_for('auth.register') }}" class="text-decoration-none hh-auth-link" style="font-weight: 800;">Create New Account</a>
                         </div>
                     </form>
                 </div>

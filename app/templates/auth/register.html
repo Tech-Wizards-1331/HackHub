@@ -1,38 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="w-100 flex justify-center py-10">
-    <div class="w-100" style="max-width: 1040px;">
-        <div class="hh-glass overflow-hidden">
+<div class="w-100 flex justify-center py-8 sm:py-10 hh-auth px-4">
+    <div class="w-100" style="max-width: 820px;">
+        <div class="hh-glass overflow-hidden hh-auth-card">
             <div class="row g-0">
                  <!-- Form -->
-                 <div class="col-12 col-xl-7 p-4 p-sm-5 order-2 order-xl-1">
-                    <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+                 <div class="col-12 col-xl-7 p-4 p-sm-4 order-2 order-xl-1">
+                    <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="w-10 h-10 rounded-2xl flex items-center justify-content-center" style="background: rgba(124,58,237,0.16); border: 1px solid rgba(124,58,237,0.22);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-content-center" style="background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.2);">
                                 <i class="bi bi-person-plus"></i>
                             </div>
                             <div>
-                                <div class="fw-bold" style="font-size: 1.25rem;">Create Account</div>
-                                <div class="hh-muted" style="font-size: 0.92rem;">Choose your role and set up your profile.</div>
+                                <div class="fw-bold" style="font-size: 1.08rem; letter-spacing: -0.01em;">Create Account</div>
+                                <div class="hh-muted" style="font-size: 0.9rem;">Choose your role and set up your profile.</div>
                             </div>
                         </div>
                     </div>
 
-                    <form method="POST" class="grid gap-3" style="max-width: 640px;">
+                    <form method="POST" class="grid gap-3" style="max-width: 540px;">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label mb-1" style="font-weight: 600;">Username</label>
+                                <label class="form-label mb-1 hh-auth-label">Username</label>
                                 <input type="text" name="username" class="form-control" placeholder="jdoe" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label mb-1" style="font-weight: 600;">Full Name</label>
+                                <label class="form-label mb-1 hh-auth-label">Full Name</label>
                                 <input type="text" name="full_name" class="form-control" placeholder="John Doe" required>
                             </div>
                         </div>
 
                         <div>
-                            <label class="form-label mb-1" style="font-weight: 600;">Email</label>
+                            <label class="form-label mb-1 hh-auth-label">Email</label>
                             <input type="email" name="email" class="form-control" placeholder="john@example.com" required>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label mb-1 hh-auth-label">University Name</label>
+                                <input type="text" name="university_name" class="form-control" placeholder="Your university" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label mb-1 hh-auth-label">Experience Level</label>
+                                <select name="experience_level" class="form-select" required>
+                                    <option value="" selected disabled>Select experience level</option>
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intern">Intern</option>
+                                    <option value="Expert">Expert</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div>
@@ -178,18 +194,18 @@
                         </div>
 
                         <div>
-                            <label class="form-label mb-1" style="font-weight: 600;">Password</label>
+                            <label class="form-label mb-1 hh-auth-label">Password</label>
                             <input type="password" name="password" class="form-control" placeholder="Create a strong password" required>
                         </div>
 
-                        <button type="submit" class="hh-btn hh-btn-primary w-100 justify-center" style="padding: 0.65rem 0.9rem;">
+                        <button type="submit" class="hh-btn hh-btn-primary w-100 justify-center">
                             Get Started
                             <i class="bi bi-arrow-right-short"></i>
                         </button>
 
                         <div class="text-center pt-2">
-                            <span class="hh-muted" style="font-size: 0.92rem;">Already have an account?</span>
-                            <a href="{{ url_for('auth.login') }}" class="text-decoration-none" style="color: var(--hh-brand); font-weight: 700;">Login</a>
+                            <span class="hh-muted" style="font-size: 0.9rem;">Already have an account?</span>
+                            <a href="{{ url_for('auth.login') }}" class="text-decoration-none hh-auth-link" style="font-weight: 800;">Login</a>
                         </div>
                     </form>
                 </div>
@@ -227,8 +243,25 @@
                             input.addEventListener('change', toggleSkillsField);
                         });
                         
-                        // Form validation for participant skills
+                        // Form validation
                         document.querySelector('form').addEventListener('submit', function(e) {
+                            const universityName = (document.querySelector('input[name="university_name"]').value || '').trim();
+                            const experienceLevel = (document.querySelector('select[name="experience_level"]').value || '').trim();
+
+                            if (!universityName) {
+                                e.preventDefault();
+                                alert('Please enter your University Name.');
+                                document.querySelector('input[name="university_name"]').focus();
+                                return;
+                            }
+
+                            if (!experienceLevel) {
+                                e.preventDefault();
+                                alert('Please select your Experience Level.');
+                                document.querySelector('select[name="experience_level"]').focus();
+                                return;
+                            }
+
                             const selectedRole = document.querySelector('input[name="role"]:checked').value;
                             
                             if (selectedRole === 'participant') {
@@ -246,12 +279,12 @@
                 </script>
 
                 <!-- Side panel (kept, but lighter + only on xl for balance) -->
-                <div class="col-xl-5 d-none d-xl-flex flex-column align-items-center justify-content-center p-4 text-center text-white position-relative overflow-hidden order-1 order-xl-2" style="background: linear-gradient(135deg, rgba(124,58,237,0.95) 0%, rgba(99,102,241,0.85) 100%);">
-                     <div style="position: absolute; width: 260px; height: 260px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.18); top: -60px; right: -70px;"></div>
+                     <div class="col-xl-5 d-none d-xl-flex flex-column align-items-center justify-content-center p-4 text-center text-white position-relative overflow-hidden order-1 order-xl-2" style="background: linear-gradient(135deg, rgba(124,58,237,0.82) 0%, rgba(99,102,241,0.72) 100%);">
+                            <div style="position: absolute; width: 230px; height: 230px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.16); top: -60px; right: -70px;"></div>
                      <div class="position-relative z-1" style="max-width: 22rem;">
-                        <div class="mb-3" style="opacity: 0.75;"><i class="bi bi-rocket-takeoff-fill" style="font-size: 2.6rem;"></i></div>
-                        <h2 class="fw-bold mb-2" style="font-size: 1.55rem;">Join HackHub</h2>
-                        <p class="mb-3" style="opacity: 0.8; font-size: 0.95rem;">Set up your profile and get matched to the right hackathon flow.</p>
+                                <div class="mb-3" style="opacity: 0.78;"><i class="bi bi-rocket-takeoff-fill" style="font-size: 2.3rem;"></i></div>
+                                <h2 class="fw-bold mb-2" style="font-size: 1.28rem;">Join HackHub</h2>
+                                <p class="mb-3" style="opacity: 0.9; font-size: 0.9rem;">Set up your profile and get matched to the right hackathon flow.</p>
                         <ul class="list-unstyled text-start d-inline-block mb-0" style="font-size: 0.92rem; opacity: 0.92;">
                             <li class="mb-2"><i class="bi bi-check-circle-fill me-2"></i> Register for events</li>
                             <li class="mb-2"><i class="bi bi-check-circle-fill me-2"></i> Join teams faster</li>

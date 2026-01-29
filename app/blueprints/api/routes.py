@@ -1,7 +1,7 @@
 from flask import jsonify, request, session
 from . import api_bp
 from app.extensions import db
-from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage
+from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage, TeamJoinRequest
 from sqlalchemy import and_
 from sqlalchemy import text
 from datetime import datetime, timedelta
@@ -65,8 +65,7 @@ def get_solo_participants(hackathon_id):
 @api_bp.route('/hackathon/<int:hackathon_id>/team/<int:team_id>/add_member', methods=['POST'])
 def add_member_to_team(hackathon_id, team_id):
     """
-    Team leader directly adds a solo participant to their team
-    NO approval needed
+    Team leader sends a join request to a solo participant
     """
     if session.get('role') != 'participant':
         return jsonify({'error': 'Unauthorized'}), 403
@@ -107,44 +106,49 @@ def add_member_to_team(hackathon_id, team_id):
     if participant.role != UserRole.PARTICIPANT:
         return jsonify({'error': 'User is not a participant'}), 400
     
-    # Validation 7: Participant must still be solo (not in any team for this hackathon)
-    existing_membership = TeamMember.query.join(Team).filter(
-        and_(
-            Team.hackathon_id == hackathon_id,
-            TeamMember.user_id == participant_id
-        )
-    ).first()
-    
+    # Validation 7: Participant must still be solo.
+    # Policy: a participant can only be registered in ONE hackathon at a time.
+    existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == participant_id).first()
+
     if existing_membership:
-        return jsonify({'error': 'Participant already in a team'}), 400
+        existing_team = existing_membership.team
+        if existing_team and existing_team.hackathon_id == hackathon_id:
+            return jsonify({'error': 'Participant already in a team for this hackathon'}), 400
+        return jsonify({'error': 'Participant already registered in another hackathon'}), 400
     
-    # DIRECT ADD (NO APPROVAL)
+    # Check for existing pending request
+    existing_request = TeamJoinRequest.query.filter_by(
+        team_id=team_id,
+        user_id=participant_id,
+        status='PENDING'
+    ).first()
+    if existing_request:
+        return jsonify({'error': 'Join request already sent'}), 400
+
+    # CREATE REQUEST (NO DIRECT ADD)
     try:
-        new_member = TeamMember(
+        join_request = TeamJoinRequest(
             team_id=team_id,
-            user_id=participant_id
+            user_id=participant_id,
+            requested_by_id=user_id,
+            status='PENDING'
         )
-        db.session.add(new_member)
-        
-        # Auto-hide: Set is_public to FALSE
-        participant.is_public = False
-        
+        db.session.add(join_request)
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
-            'message': 'Participant added to team',
-            'member': {
-                'id': new_member.id,
-                'user_id': participant_id,
-                'username': participant.username,
-                'full_name': participant.full_name
+            'message': 'Join request sent',
+            'request': {
+                'id': join_request.id,
+                'team_id': team_id,
+                'user_id': participant_id
             }
         }), 201
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to add member', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to send join request', 'details': str(e)}), 500
 
 @api_bp.route('/scan_qr', methods=['POST'])
 def scan_qr():

@@ -40,6 +40,22 @@ def create_app(config_class=Config):
         try:
             uri = app.config.get('SQLALCHEMY_DATABASE_URI', '') or ''
             if uri.startswith('sqlite:'):
+                # Ensure hackathons meal columns exist (older DBs won't have them).
+                hack_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(hackathons)')).all()]
+                hack_desired = {
+                    'enable_breakfast': 'INTEGER DEFAULT 0',
+                    'enable_lunch': 'INTEGER DEFAULT 0',
+                    'enable_dinner': 'INTEGER DEFAULT 0',
+                    'breakfast_time': 'VARCHAR(5)',
+                    'lunch_time': 'VARCHAR(5)',
+                    'dinner_time': 'VARCHAR(5)',
+                }
+                hack_missing = [(name, col_type) for name, col_type in hack_desired.items() if name not in hack_cols]
+                for name, col_type in hack_missing:
+                    db.session.execute(text(f'ALTER TABLE hackathons ADD COLUMN {name} {col_type}'))
+                if hack_missing:
+                    db.session.commit()
+
                 # Ensure users.created_at exists (needed for registration trends).
                 user_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(users)')).all()]
                 if 'created_at' not in user_cols:

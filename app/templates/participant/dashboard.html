@@ -16,6 +16,63 @@
     </div>
 </div>
 
+{% if pending_requests %}
+<div class="hh-card hh-card-hover mb-4">
+    <div class="p-4 border-b" style="border-color: var(--hh-border);">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <div class="text-sm hh-muted">Pending</div>
+                <div class="text-lg font-semibold"><i class="bi bi-person-plus me-2"></i>Team Join Requests</div>
+            </div>
+            <span class="hh-pill"><i class="bi bi-inbox"></i> Actions needed</span>
+        </div>
+    </div>
+    <div class="p-3 sm:p-4">
+        <div class="overflow-hidden">
+            <table class="hh-table">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Hackathon</th>
+                        <th>Requested by</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in pending_requests %}
+                    <tr>
+                        <td>
+                            <div class="font-medium">{{ req.team.name }}</div>
+                        </td>
+                        <td>
+                            <div class="font-medium">{{ req.team.hackathon.name }}</div>
+                        </td>
+                        <td>
+                            <div class="font-medium">{{ req.requested_by.full_name or req.requested_by.username }}</div>
+                        </td>
+                        <td class="text-right">
+                            <div class="inline-flex gap-2">
+                                <form method="post" action="{{ url_for('participant.accept_team_request', request_id=req.id) }}">
+                                    <button type="submit" class="hh-btn hh-btn-primary">
+                                        <i class="bi bi-check2"></i> Accept
+                                    </button>
+                                </form>
+                                <form method="post" action="{{ url_for('participant.reject_team_request', request_id=req.id) }}">
+                                    <button type="submit" class="hh-btn">
+                                        <i class="bi bi-x"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
     <!-- Left: My Hackathons -->
     <div class="col-lg-7">

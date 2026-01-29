@@ -1,89 +1,483 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-6">
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 mb-2">
                 <a href="{{ url_for('faculty.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
                 <span class="hh-badge hh-badge--info"><i class="bi bi-qr-code-scan"></i> Scanner</span>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">QR Scanner</h1>
-            <p class="hh-muted mt-1">Camera-first concept UI; optimized for USB scanners with auto-focus.</p>
+            <h1 class="text-2xl sm:text-3xl font-semibold">QR Scanner</h1>
+            <p class="hh-muted mt-1">Scan team QR codes for access and meal verification.</p>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Scanner Panel -->
         <div class="lg:col-span-2 hh-card p-4">
-            <form method="POST" id="scanForm" class="grid gap-4">
-                <div>
-                    <label class="form-label">Scan type</label>
-                    <select name="scan_type" class="form-select" id="scanType">
-                        <option value="REGISTRATION">Registration (Check-in)</option>
-                        <option value="MEAL">Meal</option>
-                    </select>
-                    <div class="form-text">Switch only when the station changes (entry vs meals).</div>
+            <!-- Camera Mode -->
+            <div id="cameraMode" style="display: none;">
+                <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
+                    <div class="text-sm hh-muted">Mobile Camera</div>
+                    <h2 class="text-lg font-semibold">Live QR Scanner</h2>
                 </div>
 
-                <div>
-                    <label class="form-label">QR data</label>
-                    <input type="text" name="qr_data" class="form-control" id="qrInput" autofocus required placeholder="Scan now…">
-                    <div class="form-text">Tip: keep this cursor active; most scanners end with Enter.</div>
+                <div style="position: relative; width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+                    <video 
+                        id="cameraVideo" 
+                        style="width: 100%; display: block; border-radius: 8px;"
+                        playsinline
+                        muted
+                    ></video>
+                    <canvas 
+                        id="cameraCanvas" 
+                        style="display: none;"
+                    ></canvas>
+                    <div id="cameraStatus" style="position: absolute; bottom: 12px; left: 12px; right: 12px; padding: 8px 12px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; border-radius: 4px; text-align: center;">
+                        Pointing at QR code…
+                    </div>
                 </div>
 
-                <div class="d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i> Submit</button>
-                    <button type="button" class="btn btn-outline-secondary" id="clearBtn"><i class="bi bi-x-circle me-1"></i> Clear</button>
+                <div class="p-3 rounded-xl mb-4" style="border: 1px solid rgba(59,130,246,0.35); background: rgba(59,130,246,0.10);">
+                    <div class="text-sm hh-muted">
+                        <strong>Tip:</strong> For best results:
+                        <ul style="margin: 8px 0 0 20px;">
+                            <li>Good lighting recommended</li>
+                            <li>Keep QR code centered in frame</li>
+                            <li>Avoid glare on QR code</li>
+                        </ul>
+                    </div>
                 </div>
-            </form>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" id="switchToInputBtn" class="hh-btn">
+                        <i class="bi bi-keyboard"></i> Use Text Input
+                    </button>
+                    <button type="button" id="stopCameraBtn" class="hh-btn">
+                        <i class="bi bi-stop-circle"></i> Stop Camera
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Mode -->
+            <div id="inputMode">
+                <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
+                    <div class="text-sm hh-muted">Input</div>
+                    <h2 class="text-lg font-semibold">Scan QR Code</h2>
+                </div>
+
+                <form id="scanForm" class="grid gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Scan area</label>
+                        <input 
+                            type="text" 
+                            id="qrInput" 
+                            name="qr_token" 
+                            class="form-control" 
+                            autofocus 
+                            required 
+                            placeholder="Scanner will fill automatically…"
+                            style="font-size: 16px; padding: 12px; border: 2px solid var(--hh-border); border-radius: 8px; background: rgba(255,255,255,0.05);"
+                        >
+                        <div class="text-sm hh-muted mt-2">
+                            Use USB scanner OR click "Camera" to use mobile phone camera.
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="submit" class="hh-btn hh-btn-primary">
+                            <i class="bi bi-check2-circle"></i> Submit
+                        </button>
+                        <button type="button" id="openCameraBtn" class="hh-btn">
+                            <i class="bi bi-camera-fill"></i> Camera
+                        </button>
+                        <button type="button" id="clearBtn" class="hh-btn">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Last Scan Result -->
+                <div id="resultContainer" style="display: none; margin-top: 20px; padding: 16px; border-radius: 8px; border: 2px solid var(--hh-border);">
+                    <div id="resultContent"></div>
+                </div>
+            </div>
         </div>
 
+        <!-- Guide Panel -->
         <div class="hh-card p-4">
-            <div class="text-sm hh-muted">Operator guide</div>
-            <h2 class="text-lg font-semibold">Fast scanning</h2>
-            <div class="mt-3 grid gap-2">
+            <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
+                <div class="text-sm hh-muted">Guide</div>
+                <h2 class="text-lg font-semibold">How to scan</h2>
+            </div>
+
+            <div class="grid gap-3">
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium">1) Focus input</div>
-                    <div class="text-sm hh-muted">Cursor stays active automatically.</div>
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-option"></i> Option A: USB Scanner</div>
+                    <div class="text-sm hh-muted">Keep input focused. Scan directly with USB barcode scanner.</div>
                 </div>
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium">2) Scan</div>
-                    <div class="text-sm hh-muted">Scanner fills data, then you submit.</div>
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-option"></i> Option B: Mobile Camera</div>
+                    <div class="text-sm hh-muted">Click "Camera" button. Allow camera access. Point phone at QR code.</div>
                 </div>
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium">3) Confirm</div>
-                    <div class="text-sm hh-muted">Flash messages appear as toasts.</div>
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-check2"></i> Auto-detect</div>
+                    <div class="text-sm hh-muted">Camera detects QR automatically and fills input. Click Submit.</div>
                 </div>
+                <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-repeat"></i> Next scan</div>
+                    <div class="text-sm hh-muted">Switch mode or clear field and scan again.</div>
+                </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-xl" style="border: 1px solid rgba(59,130,246,0.35); background: rgba(59,130,246,0.10);">
+                <div class="text-sm hh-muted"><i class="bi bi-info-circle"></i> Results show team name, hackathon, and meal count.</div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const qrInput = document.getElementById('qrInput');
-        const clearBtn = document.getElementById('clearBtn');
-        const form = document.getElementById('scanForm');
+<!-- jsQR library for QR detection -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
-        function focusInput() {
-            if (qrInput) qrInput.focus();
+<script>
+// Check if jsQR loaded
+window.addEventListener('load', function() {
+    if (typeof jsQR === 'undefined') {
+        console.warn('jsQR library failed to load. QR detection may not work.');
+    } else {
+        console.log('jsQR library loaded successfully');
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    const qrInput = document.getElementById('qrInput');
+    const scanForm = document.getElementById('scanForm');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultContainer = document.getElementById('resultContainer');
+    const resultContent = document.getElementById('resultContent');
+    
+    const inputMode = document.getElementById('inputMode');
+    const cameraMode = document.getElementById('cameraMode');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const openCameraBtn = document.getElementById('openCameraBtn');
+    const switchToInputBtn = document.getElementById('switchToInputBtn');
+    const stopCameraBtn = document.getElementById('stopCameraBtn');
+
+    let cameraStream = null;
+    let cameraActive = false;
+
+    // Auto-focus the input
+    function focusInput() {
+        if (qrInput && inputMode.style.display !== 'none') {
+            qrInput.focus();
+        }
+    }
+
+    focusInput();
+    setInterval(focusInput, 2000);
+
+    // Clear button
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            qrInput.value = '';
+            resultContainer.style.display = 'none';
+            focusInput();
+            if (window.HackHubUI && window.HackHubUI.toast) {
+                window.HackHubUI.toast('Cleared. Ready for next scan.', 'info');
+            }
+        });
+    }
+
+    // Open Camera
+    if (openCameraBtn) {
+        openCameraBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Camera button clicked');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Camera not supported on this device or browser.', 'error');
+                }
+                alert('Camera is not supported on this device/browser.\n\nMake sure:\n1. You are using HTTPS (not HTTP)\n2. Browser supports camera (Chrome, Firefox, Safari)\n3. You allow camera permissions');
+                return;
+            }
+            startCamera();
+        });
+    }
+
+    // Switch to Input Mode
+    if (switchToInputBtn) {
+        switchToInputBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            stopCamera();
+            inputMode.style.display = 'block';
+            cameraMode.style.display = 'none';
+            focusInput();
+            if (window.HackHubUI && window.HackHubUI.toast) {
+                window.HackHubUI.toast('Switched to text input mode.', 'info');
+            }
+        });
+    }
+
+    // Stop Camera
+    if (stopCameraBtn) {
+        stopCameraBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            stopCamera();
+            inputMode.style.display = 'block';
+            cameraMode.style.display = 'none';
+            focusInput();
+            if (window.HackHubUI && window.HackHubUI.toast) {
+                window.HackHubUI.toast('Camera stopped.', 'info');
+            }
+        });
+    }
+
+    // Start Camera
+    function startCamera() {
+        console.log('startCamera() called');
+        console.log('mediaDevices available:', !!navigator.mediaDevices);
+        
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        })
+        .then(stream => {
+            console.log('Camera stream obtained', stream);
+            cameraStream = stream;
+            cameraVideo.srcObject = stream;
+            cameraVideo.setAttribute('playsinline', 'true');
+            cameraVideo.setAttribute('muted', 'true');
+            cameraVideo.setAttribute('autoplay', 'true');
+            
+            // Force play
+            cameraVideo.play().then(() => {
+                console.log('Video play() succeeded');
+            }).catch(err => {
+                console.error('Video play() failed:', err);
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Could not start video playback: ' + err.message, 'error');
+                }
+            });
+            
+            // Wait for video to load
+            let loadTimeout = setTimeout(() => {
+                console.warn('Video metadata not loaded after 5 seconds');
+                cameraStatus.textContent = '⚠ Video not loading. Check permissions.';
+                cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
+            }, 5000);
+            
+            cameraVideo.onloadedmetadata = function() {
+                console.log('Video metadata loaded. Video size:', video.videoWidth, 'x', video.videoHeight);
+                clearTimeout(loadTimeout);
+                inputMode.style.display = 'none';
+                cameraMode.style.display = 'block';
+                cameraActive = true;
+                cameraStatus.textContent = '🔍 Scanning for QR code…';
+                scanQRFromCamera();
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Camera ready. Point at QR code.', 'success');
+                }
+            };
+        })
+        .catch(err => {
+            console.error('getUserMedia error:', err.name, err.message);
+            let errorMsg = err.name + ': ' + err.message;
+            
+            if (err.name === 'NotAllowedError') {
+                errorMsg = 'Camera permission denied. Please allow camera access and refresh.';
+            } else if (err.name === 'NotFoundError') {
+                errorMsg = 'No camera device found on this device.';
+            } else if (err.name === 'NotReadableError') {
+                errorMsg = 'Camera is in use by another application.';
+            }
+            
+            console.error('Full error:', err);
+            if (window.HackHubUI && window.HackHubUI.toast) {
+                window.HackHubUI.toast('Camera error: ' + err.message, 'error');
+            }
+            alert('❌ Camera Error: ' + errorMsg + '\n\nSolutions:\n1. Refresh the page\n2. Check browser permissions (Settings → Privacy → Camera)\n3. Close other apps using camera\n4. Use text input mode instead\n\nNote: Camera requires HTTPS on public sites.');
+        });
+    }
+
+    // Stop Camera
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        cameraActive = false;
+    }
+
+    // Scan QR from Camera
+    function scanQRFromCamera() {
+        if (!cameraActive || !cameraStream) {
+            console.log('Camera not active or no stream');
+            return;
         }
 
-        focusInput();
-        setInterval(focusInput, 2500);
+        const canvas = cameraCanvas;
+        const ctx = canvas.getContext('2d');
+        const video = cameraVideo;
 
-        if (clearBtn) {
-            clearBtn.addEventListener('click', function () {
+        // Check if video is ready
+        if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+            console.log('Video not ready. readyState:', video.readyState);
+            requestAnimationFrame(scanQRFromCamera);
+            return;
+        }
+
+        try {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get image data and scan
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Check if jsQR is available
+            if (typeof jsQR === 'undefined') {
+                console.error('jsQR library not loaded');
+                cameraStatus.textContent = '⚠ QR library error - try text input';
+                cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
+                return;
+            }
+            
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+            });
+
+            if (code) {
+                // QR Code found
+                console.log('✓ QR code detected:', code.data);
+                qrInput.value = code.data;
+                cameraStatus.textContent = '✓ QR detected! Auto-submitting…';
+                cameraStatus.style.background = 'rgba(16, 185, 129, 0.8)';
+                cameraStatus.style.color = '#fff';
+                
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('QR code detected!', 'success');
+                }
+                
+                // Auto-submit after 300ms
+                setTimeout(() => {
+                    if (cameraActive) {
+                        console.log('Auto-submitting form with token:', code.data);
+                        scanForm.dispatchEvent(new Event('submit'));
+                        stopCamera();
+                        inputMode.style.display = 'block';
+                        cameraMode.style.display = 'none';
+                    }
+                }, 300);
+            } else {
+                cameraStatus.textContent = '🔍 Scanning…';
+                cameraStatus.style.background = 'rgba(0, 0, 0, 0.7)';
+                cameraStatus.style.color = '#fff';
+            }
+        } catch (err) {
+            console.error('Scan error:', err);
+            cameraStatus.textContent = '⚠ Error: ' + err.message;
+            cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
+        }
+
+        // Continue scanning
+        if (cameraActive) {
+            requestAnimationFrame(scanQRFromCamera);
+        }
+    }
+
+    // Form submission
+    if (scanForm) {
+        scanForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const qrToken = qrInput.value.trim();
+            if (!qrToken) {
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Please scan a QR code or enter token.', 'error');
+                }
+                return;
+            }
+
+            if (window.HackHubUI && window.HackHubUI.toast) {
+                window.HackHubUI.toast('Processing scan…', 'info');
+            }
+
+            // Send to backend
+            fetch('{{ url_for("faculty.scan_qr") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ qr_token: qrToken })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Show result
+                if (data.status === 'success') {
+                    const info = data.data || {};
+                    let resultHtml = `
+                        <div style="border-left: 4px solid #10b981; padding: 12px; background: rgba(16,185,129,0.1);">
+                            <div class="font-semibold" style="color: #10b981;">✓ ${data.message}</div>
+                            <div class="text-sm hh-muted mt-2">
+                                <div><strong>Team:</strong> ${info.team_name || 'N/A'}</div>
+                                <div><strong>Hackathon:</strong> ${info.hackathon || 'N/A'}</div>
+                                <div><strong>Type:</strong> ${info.qr_type || 'N/A'}</div>
+                                ${info.count ? `<div><strong>Count:</strong> ${info.count}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    resultContent.innerHTML = resultHtml;
+                    resultContainer.style.display = 'block';
+                    if (window.HackHubUI && window.HackHubUI.toast) {
+                        window.HackHubUI.toast(data.message, 'success');
+                    }
+                } else {
+                    let resultHtml = `
+                        <div style="border-left: 4px solid #ef4444; padding: 12px; background: rgba(239,68,68,0.1);">
+                            <div class="font-semibold" style="color: #ef4444;">✗ ${data.message}</div>
+                            <div class="text-sm hh-muted mt-2">Check the QR code and try again.</div>
+                        </div>
+                    `;
+                    resultContent.innerHTML = resultHtml;
+                    resultContainer.style.display = 'block';
+                    if (window.HackHubUI && window.HackHubUI.toast) {
+                        window.HackHubUI.toast(data.message, 'error');
+                    }
+                }
+
+                // Clear and re-focus
+                setTimeout(() => {
+                    qrInput.value = '';
+                    focusInput();
+                }, 800);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                let resultHtml = `
+                    <div style="border-left: 4px solid #ef4444; padding: 12px; background: rgba(239,68,68,0.1);">
+                        <div class="font-semibold" style="color: #ef4444;">✗ Network error</div>
+                        <div class="text-sm hh-muted mt-2">${error.message}</div>
+                    </div>
+                `;
+                resultContent.innerHTML = resultHtml;
+                resultContainer.style.display = 'block';
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Network error. Try again.', 'error');
+                }
                 qrInput.value = '';
                 focusInput();
-                if (window.HackHubUI) window.HackHubUI.toast('Cleared. Ready for next scan.', 'info');
             });
-        }
-
-        if (form) {
-            form.addEventListener('submit', function () {
-                if (window.HackHubUI) window.HackHubUI.toast('Submitting scan…', 'info');
-            });
-        }
-    });
+        });
+    }
+});
 </script>
 {% endblock %}

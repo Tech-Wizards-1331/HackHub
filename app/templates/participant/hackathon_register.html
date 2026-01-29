@@ -83,7 +83,7 @@
                 <h5 class="modal-title"><i class="bi bi-tags me-2"></i>Your Skills</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('participant.solo_register', hackathon_id=hackathon.id) }}">
+            <form method="POST" action="{{ url_for('participant.solo_register', hackathon_id=hackathon.id) }}" data-existing-skills="{{ (existing_skills or '')|e }}">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Select your skills</label>
@@ -130,7 +130,12 @@ if (form) {
         const checkboxes = form.querySelectorAll('input[name="skills"]:checked');
         const skills = Array.from(checkboxes).map(cb => cb.value).join(', ');
 
-        if (!skills) {
+        const existingSkills = (form.getAttribute('data-existing-skills') || '').trim();
+
+        // If the user already provided skills at account registration,
+        // don't force them to re-enter/reselect skills during team joining.
+        // Allow submit with no selections.
+        if (!skills && !existingSkills) {
             e.preventDefault();
             if (window.HackHubUI && typeof window.HackHubUI.toast === 'function') {
                 window.HackHubUI.toast('Select at least one skill.', 'warning');
@@ -140,12 +145,15 @@ if (form) {
             return;
         }
         
-        // Remove all checkboxes and add single input
-        const skillsInput = document.createElement('input');
-        skillsInput.type = 'hidden';
-        skillsInput.name = 'skills';
-        skillsInput.value = skills;
-        form.appendChild(skillsInput);
+        // Submit selected skills only if the user actively chose them.
+        // Otherwise, the backend will reuse the already-registered skills.
+        if (skills) {
+            const skillsInput = document.createElement('input');
+            skillsInput.type = 'hidden';
+            skillsInput.name = 'skills';
+            skillsInput.value = skills;
+            form.appendChild(skillsInput);
+        }
         
         // Remove checkboxes from submission
         checkboxes.forEach(cb => cb.disabled = true);

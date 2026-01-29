@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { color: #00d4ff; }
+        .test { padding: 15px; margin: 15px 0; border: 1px solid #00d4ff; border-radius: 5px; }
+        .success { border-color: #10b981; background: rgba(16,185,129,0.1); }
+        .error { border-color: #ef4444; background: rgba(239,68,68,0.1); }
+        .warning { border-color: #f59e0b; background: rgba(245,158,11,0.1); }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #00d4ff; color: #000; border: none; border-radius: 5px; }
+        video { width: 100%; max-width: 400px; margin: 15px 0; border-radius: 5px; }
+        pre { background: #0f0f1e; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🎥 Camera Diagnostic Test</h1>
+    
+    <div class="test">
+        <h3>1. System Information</h3>
+        <p>Browser: <span id="browser">Checking...</span></p>
+        <p>Protocol: <span id="protocol">Checking...</span></p>
+        <p>MediaDevices API: <span id="mediaDevices">Checking...</span></p>
+    </div>
+
+    <div class="test">
+        <h3>2. Camera Test</h3>
+        <button onclick="testCamera()">Start Camera Test</button>
+        <div id="cameraResult"></div>
+        <video id="testVideo" style="display:none;" playsinline muted autoplay></video>
+    </div>
+
+    <div class="test">
+        <h3>3. QR Library Test</h3>
+        <button onclick="testQRLibrary()">Test jsQR Library</button>
+        <div id="libraryResult"></div>
+    </div>
+
+    <div class="test">
+        <h3>4. Full Test</h3>
+        <button onclick="fullTest()">Run Full Test</button>
+        <div id="fullResult"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+    <script>
+        // System Info
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('browser').textContent = navigator.userAgent.split(' ').slice(-1)[0];
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('mediaDevices').textContent = navigator.mediaDevices ? '✓ Supported' : '✗ Not Supported';
+        });
+
+        function testCamera() {
+            const result = document.getElementById('cameraResult');
+            result.innerHTML = '<p style="color: #ffcc00;">Testing camera access...</p>';
+
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: 640, height: 480 },
+                audio: false
+            })
+            .then(stream => {
+                result.innerHTML = '<div class="success"><strong>✓ Camera Access: SUCCESS</strong><p>Camera is accessible and working.</p></div>';
+                const video = document.getElementById('testVideo');
+                video.srcObject = stream;
+                video.style.display = 'block';
+                video.play();
+
+                setTimeout(() => {
+                    stream.getTracks().forEach(track => track.stop());
+                    video.style.display = 'none';
+                }, 3000);
+            })
+            .catch(err => {
+                let errorMsg = err.name + ': ' + err.message;
+                let solution = '';
+                
+                if (err.name === 'NotAllowedError') {
+                    solution = '<strong>Solution:</strong> Allow camera in browser permissions and refresh.';
+                } else if (err.name === 'NotFoundError') {
+                    solution = '<strong>Solution:</strong> No camera device found. Check if device has camera.';
+                } else if (err.name === 'NotReadableError') {
+                    solution = '<strong>Solution:</strong> Camera is busy. Close other apps using camera.';
+                } else if (err.name === 'SecurityError') {
+                    solution = '<strong>Solution:</strong> HTTPS required. Use HTTPS instead of HTTP.';
+                }
+
+                result.innerHTML = `<div class="error"><strong>✗ Camera Error: ${err.name}</strong><p>${err.message}</p><p>${solution}</p></div>`;
+            });
+        }
+
+        function testQRLibrary() {
+            const result = document.getElementById('libraryResult');
+            if (typeof jsQR === 'function') {
+                result.innerHTML = '<div class="success"><strong>✓ jsQR Library: LOADED</strong><p>QR detection library is available.</p></div>';
+            } else {
+                result.innerHTML = '<div class="error"><strong>✗ jsQR Library: FAILED</strong><p>QR detection library did not load from CDN. Check internet connection.</p></div>';
+            }
+        }
+
+        function fullTest() {
+            const result = document.getElementById('fullResult');
+            result.innerHTML = '<p style="color: #ffcc00;">Running full diagnostic...</p>';
+
+            let report = '<div class="test">';
+            report += '<h4>Diagnostic Report</h4>';
+
+            // Check browser
+            if (navigator.mediaDevices) {
+                report += '<p class="success">✓ MediaDevices API: Supported</p>';
+            } else {
+                report += '<p class="error">✗ MediaDevices API: NOT Supported (use Chrome/Firefox/Safari)</p>';
+            }
+
+            // Check HTTPS
+            if (window.location.protocol === 'https:') {
+                report += '<p class="success">✓ HTTPS: Yes (camera works)</p>';
+            } else if (window.location.hostname === 'localhost') {
+                report += '<p class="success">✓ HTTP Localhost: Camera should work</p>';
+            } else {
+                report += '<p class="error">✗ HTTP: Not HTTPS. Camera may not work on public sites.</p>';
+            }
+
+            // Check library
+            if (typeof jsQR === 'function') {
+                report += '<p class="success">✓ jsQR Library: Loaded</p>';
+            } else {
+                report += '<p class="error">✗ jsQR Library: NOT loaded</p>';
+            }
+
+            report += '<h4>Next Steps:</h4>';
+            report += '<ol>';
+            report += '<li>If HTTPS issue: Deploy with HTTPS or use localhost</li>';
+            report += '<li>If camera permission: Check browser settings → Privacy → Camera</li>';
+            report += '<li>If library not loaded: Check internet connection</li>';
+            report += '<li>If still failing: Use text input mode with manual scanning</li>';
+            report += '</ol>';
+            report += '</div>';
+
+            result.innerHTML = report;
+        }
+    </script>
+</body>
+</html>

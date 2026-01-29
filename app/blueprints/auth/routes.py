@@ -12,6 +12,17 @@ def register():
         password = request.form.get('password')
         role_str = request.form.get('role').upper()
         full_name = request.form.get('full_name')
+        university_name = (request.form.get('university_name') or '').strip()
+        experience_level = (request.form.get('experience_level') or '').strip()
+
+        if not university_name:
+            flash('University Name is required', 'error')
+            return redirect(url_for('auth.register'))
+
+        allowed_experience = {'Beginner', 'Intern', 'Expert'}
+        if experience_level not in allowed_experience:
+            flash('Experience Level is required', 'error')
+            return redirect(url_for('auth.register'))
         
         if User.query.filter_by(email=email).first():
             flash('Email already exists')
@@ -46,7 +57,15 @@ def register():
             # Store as comma-separated string
             skills_str = ', '.join(all_skills)
             
-        user = User(username=username, email=email, role=role, full_name=full_name, skills=skills_str)
+        user = User(
+            username=username,
+            email=email,
+            role=role,
+            full_name=full_name,
+            skills=skills_str,
+            college=university_name,
+            experience_level=experience_level,
+        )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()

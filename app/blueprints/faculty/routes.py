@@ -1,8 +1,9 @@
-from flask import render_template, request, session, redirect, url_for, flash
+from flask import render_template, request, session, redirect, url_for, flash, jsonify
 from . import faculty_bp
 from app.extensions import db
-from app.models import User, QRLog, Team, Evaluation, Hackathon, HackathonStatus, FacultyAssignment
+from app.models import User, QRLog, Team, Evaluation, Hackathon, HackathonStatus, FacultyAssignment, TeamQR, TeamMealUsage
 from functools import wraps
+from datetime import datetime
 
 def faculty_required(f):
     @wraps(f)
@@ -26,42 +27,72 @@ def dashboard():
 @faculty_required
 def scan_qr():
     if request.method == 'POST':
-        qr_data = request.form.get('qr_data')
-        scan_type = request.form.get('scan_type')
-        
-        try:
-            # Expected format: PARTICIPANT-123
-            if not qr_data.startswith('PARTICIPANT-'):
-                raise ValueError("Invalid Format")
+        if request.is_json:
+            # AJAX/JSON request
+            qr_token = request.get_json().get('qr_token')
+            
+            if not qr_token:
+                return jsonify({'status': 'error', 'message': 'Token missing'}), 400
+            
+            try:
+                # Find the QR record
+                qr_record = TeamQR.query.filter_by(qr_token=qr_token).first()
+                if not qr_record:
+                    return jsonify({'status': 'error', 'message': 'Invalid QR Token'}), 404
                 
-            p_id = int(qr_data.split('-')[1])
-            participant = User.query.get(p_id)
-            if not participant:
-                flash("Participant not found", "error")
-                return redirect(url_for('faculty.scan_qr'))
+                team = Team.query.get(qr_record.team_id)
+                if not team:
+                    return jsonify({'status': 'error', 'message': 'Team not found'}), 404
                 
-            if scan_type == 'REGISTRATION':
-                if participant.is_present:
-                    flash(f"{participant.full_name} is already marked PRESENT", "warning")
-                else:
-                    participant.is_present = True
-                    log = QRLog(participant_id=p_id, scanned_by_id=session['user_id'], scan_type='REGISTRATION', details="Check-in")
-                    db.session.add(log)
-                    db.session.commit()
-                    flash(f"{participant.full_name} marked PRESENT successfully", "success")
+                response_data = {
+                    'team_name': team.name,
+                    'hackathon': team.hackathon.name,
+                    'qr_type': qr_record.qr_type
+                }
+                
+                # Process by QR Type
+                if qr_record.qr_type == 'ACCESS':
+                    # Access - just grant access
+                    return jsonify({'status': 'success', 'message': 'Access Granted', 'data': response_data}), 200
+                
+                elif qr_record.qr_type in ['BREAKFAST', 'LUNCH', 'DINNER']:
+                    # Meal QR
+                    today = datetime.utcnow().date()
+                    usage = TeamMealUsage.query.filter_by(
+                        team_id=team.id,
+                        meal_type=qr_record.qr_type,
+                        usage_date=today
+                    ).first()
                     
-            elif scan_type == 'MEAL':
-                if not participant.is_present:
-                    flash(f"Cannot scan meal. {participant.full_name} has not checked in!", "error")
-                else:
-                    # Check for duplicates? For now, allow multiple provided it's logged
-                    log = QRLog(participant_id=p_id, scanned_by_id=session['user_id'], scan_type='MEAL', details="Meal Scan")
-                    db.session.add(log)
-                    db.session.commit()
-                    flash(f"Meal scanned for {participant.full_name}", "success")
+                    if not usage:
+                        usage = TeamMealUsage(
+                            team_id=team.id,
+                            meal_type=qr_record.qr_type,
+                            used_count=0,
+                            usage_date=today
+                        )
+                        db.session.add(usage)
                     
-        except Exception as e:
-            flash(f"Error scanning: {str(e)}", "error")
+                    member_count = len(team.members)
+                    
+                    if usage.used_count < member_count:
+                        usage.used_count += 1
+                        usage.last_updated = datetime.utcnow()
+                        response_data['count'] = f"{usage.used_count}/{member_count}"
+                        db.session.commit()
+                        return jsonify({'status': 'success', 'message': f'{qr_record.qr_type} Verified', 'data': response_data}), 200
+                    else:
+                        db.session.rollback()
+                        return jsonify({'status': 'error', 'message': f'Daily Limit Reached ({usage.used_count}/{member_count})', 'data': response_data}), 400
+                
+                return jsonify({'status': 'error', 'message': 'Unknown QR Type'}), 400
+                
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'status': 'error', 'message': str(e)}), 500
+        else:
+            # Form POST - redirect back
+            return redirect(url_for('faculty.scan_qr'))
             
     return render_template('faculty/scan.html')
 

@@ -108,7 +108,7 @@ function addToTeam(participantId, name) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            hhToast('Member added successfully!', 'success');
+            hhToast(data.message || 'Join request sent!', 'success');
             loadParticipants(); // Refresh list
         } else {
             hhToast(data.error || 'Failed to add member', 'error');
