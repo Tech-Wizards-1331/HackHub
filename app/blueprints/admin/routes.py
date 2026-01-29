@@ -49,6 +49,11 @@ def create_hackathon():
         enable_lunch = 'enable_lunch' in request.form
         enable_dinner = 'enable_dinner' in request.form
         
+        # Meal times (HH:MM format)
+        breakfast_time = request.form.get('breakfast_time', '')  # e.g., "07:00"
+        lunch_time = request.form.get('lunch_time', '')          # e.g., "12:30"
+        dinner_time = request.form.get('dinner_time', '')        # e.g., "18:00"
+        
         hackathon = Hackathon(
             name=name, 
             description=description,
@@ -58,7 +63,10 @@ def create_hackathon():
             start_date=start_date,
             enable_breakfast=enable_breakfast,
             enable_lunch=enable_lunch,
-            enable_dinner=enable_dinner
+            enable_dinner=enable_dinner,
+            breakfast_time=breakfast_time if enable_breakfast else None,
+            lunch_time=lunch_time if enable_lunch else None,
+            dinner_time=dinner_time if enable_dinner else None,
         )
         db.session.add(hackathon)
         db.session.commit()
@@ -86,6 +94,12 @@ def manage_hackathon(id):
             hackathon.enable_breakfast = 'enable_breakfast' in request.form
             hackathon.enable_lunch = 'enable_lunch' in request.form
             hackathon.enable_dinner = 'enable_dinner' in request.form
+            
+            # Update meal times (HH:MM format)
+            hackathon.breakfast_time = request.form.get('breakfast_time') if hackathon.enable_breakfast else None
+            hackathon.lunch_time = request.form.get('lunch_time') if hackathon.enable_lunch else None
+            hackathon.dinner_time = request.form.get('dinner_time') if hackathon.enable_dinner else None
+            
             db.session.commit()
             flash('Meal configuration updated', 'success')
 
