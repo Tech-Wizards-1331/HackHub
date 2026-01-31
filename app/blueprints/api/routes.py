@@ -257,13 +257,13 @@ def analytics_summary(hackathon_id):
 
     try:
         rows = db.session.execute(text('''
-            SELECT date(created_at) AS d,
+            SELECT created_at::date AS d,
                    COUNT(*) AS total,
-                   SUM(CASE WHEN role = 'PARTICIPANT' OR role = 'participant' THEN 1 ELSE 0 END) AS participants
+                   SUM(CASE WHEN lower(role::text) = 'participant' THEN 1 ELSE 0 END) AS participants
             FROM users
             WHERE created_at IS NOT NULL
-              AND date(created_at) >= :start_day
-            GROUP BY date(created_at)
+              AND created_at::date >= :start_day
+            GROUP BY created_at::date
         '''), {'start_day': start_day.isoformat()}).all()
 
         for d, total, participants in rows:
@@ -279,12 +279,12 @@ def analytics_summary(hackathon_id):
     team_by_day = {k: 0 for k in day_labels}
     try:
         rows = db.session.execute(text('''
-            SELECT date(t.created_at) AS d, COUNT(*) AS total
+            SELECT t.created_at::date AS d, COUNT(*) AS total
             FROM teams t
             WHERE t.hackathon_id = :hid
               AND t.created_at IS NOT NULL
-              AND date(t.created_at) >= :start_day
-            GROUP BY date(t.created_at)
+              AND t.created_at::date >= :start_day
+            GROUP BY t.created_at::date
         '''), {'hid': hackathon_id, 'start_day': start_day.isoformat()}).all()
         for d, total in rows:
             key = str(d)
@@ -325,7 +325,7 @@ def analytics_summary(hackathon_id):
                     COUNT(DISTINCT participant_id) AS unique_participants
                 FROM qr_logs
                 WHERE scan_type = 'REGISTRATION'
-                  AND date(timestamp) = :event_date
+                  AND "timestamp"::date = :event_date
             '''), {'event_date': event_date.isoformat()}).one()
             attendance['checked_in_total_scans'] = int(rows[0] or 0)
             attendance['checked_in_unique'] = int(rows[1] or 0)
@@ -349,15 +349,18 @@ def analytics_summary(hackathon_id):
 
     try:
         rows = db.session.execute(text('''
-            SELECT strftime('%Y-%m-%d %H:', created_at) ||
-                   printf('%02d', (CAST(strftime('%M', created_at) AS INTEGER) / 5) * 5) AS bucket,
+            SELECT to_char(
+                     date_trunc('hour', created_at)
+                     + (floor(extract(minute from created_at) / 5) * interval '5 minutes'),
+                     'YYYY-MM-DD HH24:MI'
+                   ) AS bucket,
                    COUNT(*) AS total
             FROM evaluations
             WHERE hackathon_id = :hid
               AND created_at IS NOT NULL
-              AND datetime(created_at) >= datetime(:eval_start)
+              AND created_at >= :eval_start
             GROUP BY bucket
-        '''), {'hid': hackathon_id, 'eval_start': eval_start.strftime('%Y-%m-%d %H:%M:%S')}).all()
+        '''), {'hid': hackathon_id, 'eval_start': eval_start}).all()
 
         # Map bucket strings back onto our labels
         for bucket_str, total in rows:

@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from .extensions import db, sess
+from .extensions import db, migrate, sess
 from sqlalchemy import text
 
 def create_app(config_class=Config):
@@ -11,6 +11,7 @@ def create_app(config_class=Config):
     app.config['SESSION_TYPE'] = 'filesystem'
     
     db.init_app(app)
+    migrate.init_app(app, db)
     sess.init_app(app)
     
     from .blueprints.auth import auth_bp
@@ -33,13 +34,15 @@ def create_app(config_class=Config):
         return render_template('public/index.html')
         
     with app.app_context():
-        db.create_all()
-
         # Lightweight SQLite schema migration for existing local DBs.
         # `create_all()` will not add new columns to existing tables.
         try:
             uri = app.config.get('SQLALCHEMY_DATABASE_URI', '') or ''
             if uri.startswith('sqlite:'):
+                # Local/dev convenience: ensure base tables exist for SQLite.
+                # Postgres schema should be managed via Alembic (Flask-Migrate) instead.
+                db.create_all()
+
                 # Ensure hackathons meal columns exist (older DBs won't have them).
                 hack_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(hackathons)')).all()]
                 hack_desired = {
