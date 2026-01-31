@@ -30,6 +30,18 @@
   --hh-shadow-premium: 0 30px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
   --hh-focus: 0 0 0 4px rgba(124, 58, 237, 0.25);
   --hh-glow: 0 0 30px rgba(124, 58, 237, 0.4);
+
+  /* Dropdown + select theming helpers */
+  --hh-dropdown-menu-bg: rgba(15, 23, 42, 0.92);
+  --hh-dropdown-menu-bg-2: rgba(2, 6, 23, 0.92);
+  --hh-dropdown-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --hh-dropdown-item-active-bg: rgba(var(--hh-brand-rgb), 0.26);
+  --hh-select-indicator: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath d='M4.5 6.5l3.5 3.5 3.5-3.5' stroke='%23f1f5f9' stroke-opacity='0.85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+}
+
+/* Default (dark) native control palette */
+html {
+  color-scheme: dark;
 }
 
 /* Light theme overrides */
@@ -50,6 +62,91 @@ html[data-theme="light"] {
   --hh-shadow: 0 20px 60px rgba(15, 23, 42, 0.10);
   --hh-shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
   --hh-focus: 0 0 0 4px rgba(124, 58, 237, 0.18);
+
+  --hh-dropdown-item-hover-bg: rgba(15, 23, 42, 0.06);
+  --hh-dropdown-item-active-bg: rgba(var(--hh-brand-rgb), 0.18);
+  --hh-dropdown-menu-bg: rgba(248, 250, 252, 0.98);
+  --hh-dropdown-menu-bg-2: rgba(241, 245, 249, 0.96);
+  --hh-select-indicator: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath d='M4.5 6.5l3.5 3.5 3.5-3.5' stroke='%230f172a' stroke-opacity='0.72' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+}
+
+/* Prevent Bootstrap light utility classes from rendering white in dark theme */
+html:not([data-theme="light"]) .bg-light,
+html:not([data-theme="light"]) .bg-white {
+  background: linear-gradient(180deg, var(--hh-panel), var(--hh-panel-strong)) !important;
+  color: var(--hh-text) !important;
+}
+
+/* ==================== DROPDOWNS (BOOTSTRAP) ==================== */
+/* Ensure dropdown menus fully follow active theme (no white surfaces in dark mode). */
+.dropdown-menu {
+  background: linear-gradient(180deg, var(--hh-dropdown-menu-bg), var(--hh-dropdown-menu-bg-2)) !important;
+  border: 1px solid var(--hh-border) !important;
+  color: var(--hh-text) !important;
+  border-radius: 14px;
+  box-shadow: var(--hh-shadow-soft);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  /* Bootstrap variables (in case components rely on them) */
+  --bs-dropdown-bg: transparent;
+  --bs-dropdown-border-color: var(--hh-border);
+  --bs-dropdown-color: var(--hh-text);
+  --bs-dropdown-link-color: var(--hh-text);
+  --bs-dropdown-link-hover-color: var(--hh-text);
+  --bs-dropdown-link-hover-bg: var(--hh-dropdown-item-hover-bg);
+  --bs-dropdown-link-active-color: var(--hh-text);
+  --bs-dropdown-link-active-bg: var(--hh-dropdown-item-active-bg);
+  --bs-dropdown-divider-bg: var(--hh-border);
+}
+
+.dropdown-menu .dropdown-item {
+  color: var(--hh-text) !important;
+  background: transparent !important;
+}
+
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus {
+  background: var(--hh-dropdown-item-hover-bg) !important;
+  color: var(--hh-text) !important;
+}
+
+.dropdown-menu .dropdown-item.active,
+.dropdown-menu .dropdown-item:active {
+  background: var(--hh-dropdown-item-active-bg) !important;
+  color: var(--hh-text) !important;
+}
+
+.dropdown-menu .dropdown-header {
+  color: var(--hh-muted) !important;
+}
+
+.dropdown-menu .dropdown-divider {
+  border-top-color: var(--hh-border) !important;
+}
+
+.dropdown-menu .dropdown-item i,
+.dropdown-menu .dropdown-item .bi {
+  color: currentColor;
+}
+
+/* ==================== SELECTS (NATIVE + BOOTSTRAP) ==================== */
+/* Ensure the select indicator/caret matches theme (Bootstrap defaults are dark). */
+.form-select,
+.hh-select {
+  background-image: var(--hh-select-indicator) !important;
+}
+
+/* Best-effort: option list theming for browsers that support it. */
+html:not([data-theme="light"]) select option,
+html[data-theme="dark"] select option {
+  background-color: #0b1020;
+  color: var(--hh-text);
+}
+
+html[data-theme="light"] select option {
+  background-color: #f8fafc;
+  color: var(--hh-text);
 }
 
 /* Light theme MUST not inherit the dark page background. */
@@ -109,6 +206,13 @@ html[data-theme="light"] .hh-input::placeholder,
 html[data-theme="light"] .hh-select::placeholder,
 html[data-theme="light"] .hh-textarea::placeholder {
   color: rgba(15, 23, 42, 0.55);
+}
+
+/* Input group text (dark default) */
+.input-group-text {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: var(--hh-border) !important;
+  color: rgba(241, 245, 249, 0.82) !important;
 }
 
 html[data-theme="light"] .input-group-text {
@@ -310,6 +414,28 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(124, 58, 237, 0.5);
   color: var(--hh-text);
+}
+
+/* Mobile polish: landing page CTA + public header actions */
+@media (max-width: 576px) {
+  .hh-btn-hero {
+    width: min(100%, 420px);
+  }
+
+  .hh-public-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .hh-public-actions .hh-btn {
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+  }
+
+  .hh-public-actions .hh-btn-label {
+    display: none;
+  }
 }
 
 /* Trust Cards */
@@ -794,6 +920,114 @@ body {
   border-color: rgba(124, 58, 237, 0.6);
   box-shadow: var(--hh-focus);
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ==================== CHECKBOXES (BOOTSTRAP form-check) ==================== */
+/* Clean, consistent checkbox visuals across themes (no oversized/misaligned defaults). */
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 1.5rem;
+  padding-left: 0;
+  margin-bottom: 0.25rem;
+}
+
+.form-check:last-child {
+  margin-bottom: 0;
+}
+
+.form-check-input[type="checkbox"] {
+  float: none;
+  margin: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--hh-border);
+  background-color: rgba(255, 255, 255, 0.04);
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  flex: 0 0 auto;
+}
+
+.form-check-label {
+  margin: 0;
+  line-height: 1.25;
+  color: var(--hh-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.form-check-input[type="checkbox"]:hover {
+  border-color: var(--hh-border-strong);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.form-check-input[type="checkbox"]:focus {
+  border-color: rgba(124, 58, 237, 0.65);
+  box-shadow: var(--hh-focus);
+}
+
+.form-check-input[type="checkbox"]:checked {
+  background-color: rgba(var(--hh-brand-rgb), 0.95) !important;
+  border-color: rgba(var(--hh-brand-rgb), 0.65) !important;
+}
+
+.form-check-input[type="checkbox"]:active {
+  transform: scale(0.98);
+}
+
+.form-check-input[type="checkbox"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.form-check-input[type="checkbox"]:disabled + .form-check-label {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Light theme: keep checkbox surface crisp but not pure white. */
+html[data-theme="light"] .form-check-input[type="checkbox"] {
+  background-color: rgba(248, 250, 252, 0.96);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+html[data-theme="light"] .form-check-input[type="checkbox"]:hover {
+  background-color: rgba(248, 250, 252, 0.99);
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+/* Bootstrap switches (checkbox-based): size + track colors to match theme. */
+.form-check.form-switch {
+  gap: 0.75rem;
+}
+
+.form-switch .form-check-input[type="checkbox"] {
+  width: 2.4rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--hh-border);
+}
+
+.form-switch .form-check-input[type="checkbox"]:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--hh-border-strong);
+}
+
+.form-switch .form-check-input[type="checkbox"]:checked {
+  background-color: rgba(var(--hh-brand-rgb), 0.85) !important;
+  border-color: rgba(var(--hh-brand-rgb), 0.55) !important;
+}
+
+html[data-theme="light"] .form-switch .form-check-input[type="checkbox"] {
+  background-color: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+html[data-theme="light"] .form-switch .form-check-input[type="checkbox"]:hover {
+  background-color: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.24);
 }
 
 /* ==================== AUTH (LOGIN/REGISTER) POLISH ==================== */

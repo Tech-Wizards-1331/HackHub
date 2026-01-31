@@ -203,6 +203,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Camera is not supported on this device/browser.\n\nMake sure:\n1. You are using HTTPS (not HTTP)\n2. Browser supports camera (Chrome, Firefox, Safari)\n3. You allow camera permissions');
                 return;
             }
+
+            // Most browsers block camera on insecure origins (HTTP), except localhost.
+            if (window.isSecureContext === false) {
+                const host = window.location && window.location.hostname;
+                const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+                if (!isLocalhost) {
+                    const msg = 'Camera requires HTTPS.\n\nOpen this site via https:// or run it on http://localhost (not a LAN IP).';
+                    if (window.HackHubUI && window.HackHubUI.toast) {
+                        window.HackHubUI.toast('Camera blocked: use HTTPS or localhost.', 'error');
+                    }
+                    alert(msg);
+                    return;
+                }
+            }
             startCamera();
         });
     }
@@ -255,26 +269,16 @@ document.addEventListener('DOMContentLoaded', function() {
             cameraVideo.setAttribute('playsinline', 'true');
             cameraVideo.setAttribute('muted', 'true');
             cameraVideo.setAttribute('autoplay', 'true');
-            
-            // Force play
-            cameraVideo.play().then(() => {
-                console.log('Video play() succeeded');
-            }).catch(err => {
-                console.error('Video play() failed:', err);
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Could not start video playback: ' + err.message, 'error');
-                }
-            });
-            
-            // Wait for video to load
+
+            // Wait for video to load (bind handler before play to avoid missing the event)
             let loadTimeout = setTimeout(() => {
                 console.warn('Video metadata not loaded after 5 seconds');
                 cameraStatus.textContent = '⚠ Video not loading. Check permissions.';
                 cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
             }, 5000);
-            
+
             cameraVideo.onloadedmetadata = function() {
-                console.log('Video metadata loaded. Video size:', video.videoWidth, 'x', video.videoHeight);
+                console.log('Video metadata loaded. Video size:', cameraVideo.videoWidth, 'x', cameraVideo.videoHeight);
                 clearTimeout(loadTimeout);
                 inputMode.style.display = 'none';
                 cameraMode.style.display = 'block';
@@ -285,6 +289,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.HackHubUI.toast('Camera ready. Point at QR code.', 'success');
                 }
             };
+            
+            // Force play
+            cameraVideo.play().then(() => {
+                console.log('Video play() succeeded');
+            }).catch(err => {
+                console.error('Video play() failed:', err);
+                if (window.HackHubUI && window.HackHubUI.toast) {
+                    window.HackHubUI.toast('Could not start video playback: ' + err.message, 'error');
+                }
+            });
         })
         .catch(err => {
             console.error('getUserMedia error:', err.name, err.message);
@@ -311,6 +325,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             cameraStream = null;
+        }
+        if (cameraVideo) {
+            try { cameraVideo.pause(); } catch (e) {}
+            cameraVideo.srcObject = null;
         }
         cameraActive = false;
     }

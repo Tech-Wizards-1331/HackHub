@@ -234,12 +234,18 @@
                             </div>
                         </div>
                     </a>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 hh-public-actions">
                         <button data-hh-theme-toggle class="hh-btn" type="button" aria-label="Toggle theme">
                             <i data-hh-theme-icon class="bi bi-moon-stars"></i>
                         </button>
-                        <a class="hh-btn" href="{{ url_for('auth.login') }}"><i class="bi bi-box-arrow-in-right"></i> Login</a>
-                        <a class="hh-btn hh-btn-primary" href="{{ url_for('auth.register') }}"><i class="bi bi-person-plus"></i> Register</a>
+                        <a class="hh-btn" href="{{ url_for('auth.login') }}" aria-label="Login">
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            <span class="hh-btn-label">Login</span>
+                        </a>
+                        <a class="hh-btn hh-btn-primary" href="{{ url_for('auth.register') }}" aria-label="Register">
+                            <i class="bi bi-person-plus"></i>
+                            <span class="hh-btn-label">Register</span>
+                        </a>
                     </div>
                 </div>
             </div>
