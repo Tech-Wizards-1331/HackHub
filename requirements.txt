@@ -1,7 +1,8 @@
 flask
 flask-sqlalchemy
+flask-migrate
 flask-session
-pymysql
+psycopg2-binary
 qrcode
 pillow
 werkzeug

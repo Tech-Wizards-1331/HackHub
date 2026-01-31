@@ -24,7 +24,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.Enum(UserRole), nullable=False)
+    role = db.Column(db.Enum(UserRole, name='user_role'), nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -51,7 +51,7 @@ class Hackathon(db.Model):
     name = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text)
     venue = db.Column(db.String(150))
-    status = db.Column(db.Enum(HackathonStatus), default=HackathonStatus.DRAFT)
+    status = db.Column(db.Enum(HackathonStatus, name='hackathon_status'), default=HackathonStatus.DRAFT)
     
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
@@ -221,7 +221,7 @@ class QRFoodTicket(db.Model):
     # QR metadata
     qr_token = db.Column(db.String(256), unique=True, nullable=False)  # Unique per ticket
     meal_type = db.Column(db.String(20), nullable=False)  # BREAKFAST, LUNCH, DINNER
-    status = db.Column(db.Enum(QRFoodTicketStatus), default=QRFoodTicketStatus.ACTIVE, nullable=False)
+    status = db.Column(db.Enum(QRFoodTicketStatus, name='qr_food_ticket_status'), default=QRFoodTicketStatus.ACTIVE, nullable=False)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

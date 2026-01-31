@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, Optional
 
-from sqlalchemy import text
+from sqlalchemy import func, inspect, text
 
 from app import create_app
 from app.extensions import db
@@ -234,9 +234,8 @@ def _get_or_create_hackathon(
 
 def _teams_has_created_at() -> bool:
     try:
-        rows = db.session.execute(text("PRAGMA table_info(teams)")).all()
-        cols = {r[1] for r in rows}
-        return "created_at" in cols
+        cols = inspect(db.engine).get_columns('teams')
+        return any(c.get('name') == 'created_at' for c in cols)
     except Exception:
         return False
 
@@ -245,10 +244,9 @@ def _set_team_created_at(team_id: int, created_at: datetime) -> None:
     if not _teams_has_created_at():
         return
 
-    # SQLite stores datetimes as text by default; ISO-like string works.
     db.session.execute(
         text("UPDATE teams SET created_at = :dt WHERE id = :id"),
-        {"dt": created_at.strftime("%Y-%m-%d %H:%M:%S"), "id": team_id},
+        {"dt": created_at, "id": team_id},
     )
     db.session.commit()
 
@@ -411,9 +409,11 @@ def _ensure_attendance(hack: Hackathon, *, scanned_by: User, participants: list[
     for p in participants[:count]:
         p.is_present = True
         # Don't duplicate logs
-        existing = QRLog.query.filter_by(participant_id=p.id, scan_type="REGISTRATION").filter(
-            text("date(timestamp) = :d")
-        ).params(d=event_date.isoformat()).first()
+        existing = (
+            QRLog.query.filter_by(participant_id=p.id, scan_type="REGISTRATION")
+            .filter(func.date(QRLog.timestamp) == event_date)
+            .first()
+        )
 
         if not existing:
             ts = datetime.combine(event_date, datetime.utcnow().time()).replace(microsecond=0)
