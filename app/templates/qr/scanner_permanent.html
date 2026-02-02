@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Permanent QR Scanner</h4>
+                    <span id="connection-status" class="badge bg-light text-dark">Ready</span>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ADMIN CONTROL: Active Access Type -->
+                    <div class="mb-4 p-4 border rounded text-center" style="background-color: #f8f9fa;">
+                        <h6 class="text-uppercase text-muted fw-bold ls-1">Current Active Event</h6>
+                        <h1 id="display-mode-title" class="display-1 fw-bold text-primary my-2">LOADING...</h1>
+                        
+                        <div class="input-group mt-3 w-75 mx-auto">
+                            <span class="input-group-text bg-white">Switch Mode:</span>
+                            <select id="access-type-select" class="form-select fw-bold">
+                                <option value="ENTRY">ENTRY</option>
+                                <option value="LUNCH">LUNCH</option>
+                                <option value="DINNER">DINNER</option>
+                            </select>
+                            <button class="btn btn-dark" onclick="updateAccessType()">Update</button>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle"></i> 
+                            Switching modes automatically resets scan eligibility for the new event.
+                        </small>
+                    </div>
+
+                    <!-- SCANNER VIEWPORT -->
+                    <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="modal fade" id="resultModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center">
+            <div class="modal-body p-5">
+                <div id="modal-icon" class="mb-3" style="font-size: 5rem;"></div>
+                <h2 id="modal-title" class="fw-bold mb-2"></h2>
+                <h4 id="modal-subtitle" class="text-muted"></h4>
+                <div id="modal-details" class="mt-3 text-secondary"></div>
+                <button type="button" class="btn btn-lg btn-outline-secondary mt-4 w-100" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+    const accessSelect = document.getElementById('access-type-select');
+    const statusBadge = document.getElementById('connection-status');
+    const displayTitle = document.getElementById('display-mode-title');
+    
+    // Check if bootstrap is loaded
+    const resultModalEl = document.getElementById('resultModal');
+    let resultModal = null;
+    
+    let isScanning = true;
+
+    // 1. Load Current Access Type on Load
+    async function loadAccessType() {
+        try {
+            const res = await fetch('/api/qr/active-access');
+            const data = await res.json();
+            accessSelect.value = data.active_access_type;
+            displayTitle.textContent = data.active_access_type + " MODE";
+        } catch (e) {
+            console.error("Failed to load access type", e);
+        }
+    }
+    loadAccessType();
+
+    // 2. Update Access Type
+    async function updateAccessType() {
+        const newType = accessSelect.value;
+        if(!confirm(`Are you sure you want to set Active Mode to ${newType}?`)) return;
+
+        try {
+            const res = await fetch('/api/qr/active-access', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ access_type: newType })
+            });
+            const data = await res.json();
+            if(data.success) {
+                // Update UI immediately
+                displayTitle.textContent = newType + " MODE";
+                // alert(`System is now in ${newType} mode.`); // Optional alert
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Network error updating access type');
+        }
+    }
+
+    // 3. Handle Scan Success
+    async function onScanSuccess(decodedText, decodedResult) {
+        if (!isScanning) return;
+        
+        // Prevent rapid duplicate scans locally
+        isScanning = false;
+        
+        // Ensure modal instance exists
+        if(!resultModal) {
+            resultModal = new bootstrap.Modal(resultModalEl);
+            
+            // Re-enable scanning when modal closes
+            resultModalEl.addEventListener('hidden.bs.modal', function () {
+                isScanning = true;
+                statusBadge.textContent = "Ready";
+                statusBadge.className = "badge bg-success";
+            });
+        }
+
+        statusBadge.textContent = "Processing...";
+        statusBadge.className = "badge bg-warning text-dark";
+
+        try {
+            const res = await fetch('/api/qr/scan-permanent', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ qr_token: decodedText })
+            });
+            const data = await res.json();
+            
+            const mTitle = document.getElementById('modal-title');
+            const mSubtitle = document.getElementById('modal-subtitle');
+            const mIcon = document.getElementById('modal-icon');
+            const mDetails = document.getElementById('modal-details');
+
+            if (data.success) {
+                // SUCCESS
+                mTitle.textContent = "SUCCESSFUL";
+                mTitle.className = "fw-bold mb-2 text-success";
+                
+                mSubtitle.textContent = "Access Granted";
+                mIcon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                
+                mDetails.innerHTML = `<trong>${data.user_name}</strong><br>${data.access_type}`;
+                
+                // Audio would go here
+            } else {
+                // FAILURE / DUPLICATE
+                if (data.message.includes("ALREADY")) {
+                     mTitle.textContent = "REJECTED";
+                     mTitle.className = "fw-bold mb-2 text-warning";
+                     
+                     mSubtitle.textContent = "Already Scanned";
+                     mIcon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning"></i>';
+                } else {
+                     mTitle.textContent = "REJECTED";
+                     mTitle.className = "fw-bold mb-2 text-danger";
+                     
+                     mSubtitle.textContent = "Invalid QR";
+                     mIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+                }
+                mDetails.innerHTML = `${data.message}<br><small>${data.user_name || 'Unknown User'}</small>`;
+            }
+            
+            resultModal.show();
+
+        } catch (e) {
+            console.error(e);
+            alert("Network Error");
+            isScanning = true;
+        }
+    }
+
+    function onScanFailure(error) {
+        // usually ignore frame failures
+    }
+
+    // 4. Initialize Scanner
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        /* verbose= */ false);
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+</script>
+{% endblock %}

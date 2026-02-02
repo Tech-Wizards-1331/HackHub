@@ -37,6 +37,7 @@ class User(db.Model):
     
     # QR Code
     registration_qr = db.Column(db.String(200)) # Path or string data
+    qr_token = db.Column(db.String(36), unique=True, nullable=True) # UUID for permanent QR
     is_present = db.Column(db.Boolean, default=False)
     
     def set_password(self, password):
@@ -285,3 +286,22 @@ class QRScanLog(db.Model):
         db.Index('ix_scan_timestamp', 'scanned_at'),
         db.Index('ix_scan_status', 'scan_status'),
     )
+
+class AccessSetting(db.Model):
+    __tablename__ = 'access_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    active_access_type = db.Column(db.String(20), default='ENTRY')  # ENTRY, LUNCH, DINNER
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ScanLog(db.Model):
+    __tablename__ = 'scan_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    access_type = db.Column(db.String(20), nullable=False)
+    scan_time = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Optional: status to explicitly track success/failure if needed, 
+    # but existence of record usually implies success in this logic.
+    status = db.Column(db.String(20), default='SUCCESS')
+    
+    user = db.relationship('User', backref=db.backref('scan_logs', lazy=True))

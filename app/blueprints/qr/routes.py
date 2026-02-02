@@ -3,12 +3,13 @@ QR Food Ticket API Routes
 Endpoints for generating, scanning, and managing food ticket QR codes.
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, render_template
 from functools import wraps
 from app.extensions import db
-from app.models import User, UserRole, Team, Hackathon
+from app.models import User, UserRole, Team, Hackathon, AccessSetting, ScanLog
 from app.utils.qr_ticket_service import QRTicketService
 from app.utils.qr_code_generator import QRCodeGenerator
+import io
 
 qr_bp = Blueprint("qr", __name__, url_prefix="/api/qr")
 
@@ -20,6 +21,11 @@ def require_role(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             user_id = request.headers.get("X-User-ID")
+            # Also check session for normal web access
+            if not user_id:
+                from flask import session
+                user_id = session.get('user_id')
+                
             if not user_id:
                 return jsonify({"error": "Unauthorized: no user ID"}), 401
 
@@ -458,4 +464,144 @@ def revoke_ticket(ticket_id):
         return jsonify({"success": False, "message": "Ticket not found"}), 404
 
 
-import io
+@qr_bp.route("/my-qr-image")
+@require_role(UserRole.PARTICIPANT, UserRole.FACULTY, UserRole.ADMIN)
+def my_qr_image():
+    """
+    Generate the permanent QR code image for the logged-in user.
+    """
+    from flask import session, send_file
+    user_id = session.get('user_id')
+    user = User.query.get(user_id)
+    
+    if not user or not user.qr_token:
+        # Generate on fly if missing (migration safety)
+        if user and not user.qr_token:
+            import uuid
+            user.qr_token = str(uuid.uuid4())
+            db.session.commit()
+        else:
+            return jsonify({"error": "User or token not found"}), 404
+
+    try:
+        # Use AccessSetting to determine label on QR (optional) or just user name
+        setting = AccessSetting.query.first()
+        active_type = setting.active_access_type if setting else "MEMBER"
+
+        img_bytes = QRCodeGenerator.generate_qr_image(
+            user.qr_token,
+            "ID", # Center text
+            user.full_name or user.username
+        )
+        return send_file(
+            io.BytesIO(img_bytes),
+            mimetype="image/png",
+            as_attachment=False,
+            download_name="my_access_qr.png"
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- PERMANENT QR ACCESS CONTROL ROUTES ---
+
+@qr_bp.route("/active-access", methods=["GET"])
+def get_active_access():
+    """Get the currently active access type (ENTRY, LUNCH, DINNER)."""
+    setting = AccessSetting.query.first()
+    if not setting:
+        return jsonify({"active_access_type": "ENTRY"}), 200
+    return jsonify({"active_access_type": setting.active_access_type}), 200
+
+
+@qr_bp.route("/active-access", methods=["POST"])
+@require_role(UserRole.ADMIN)
+def set_active_access():
+    """Set the active access type."""
+    data = request.get_json()
+    new_type = data.get("access_type")
+    
+    if new_type not in ["ENTRY", "LUNCH", "DINNER"]:
+        return jsonify({"error": "Invalid access type"}), 400
+        
+    setting = AccessSetting.query.first()
+    if not setting:
+        setting = AccessSetting(active_access_type=new_type)
+        db.session.add(setting)
+    else:
+        setting.active_access_type = new_type
+        from datetime import datetime
+        setting.last_updated = datetime.utcnow()
+        
+    db.session.commit()
+    return jsonify({"success": True, "active_access_type": new_type}), 200
+
+
+@qr_bp.route("/scan-permanent", methods=["POST"])
+def scan_permanent_qr():
+    """
+    Process a scan from the permanent QR system.
+    """
+    # 1. Get Params
+    data = request.get_json()
+    qr_token = data.get("qr_token")
+    
+    if not qr_token:
+        return jsonify({"success": False, "message": "No QR token provided"}), 400
+
+    # Handle composite QR format: MEAL|TYPE|TOKEN|NAME
+    if qr_token.startswith("MEAL|"):
+        try:
+            parts = qr_token.split("|")
+            if len(parts) >= 3:
+                qr_token = parts[2]
+        except Exception:
+            pass # Fallback to using original token string
+
+    # 2. Find User
+    user = User.query.filter_by(qr_token=qr_token).first()
+    if not user:
+        return jsonify({"success": False, "message": "Invalid QR Token"}), 404
+
+    # 3. Get Active Access Mode
+    setting = AccessSetting.query.first()
+    active_type = setting.active_access_type if setting else "ENTRY"
+    
+    # 4. Check for Duplicate Scan
+    from datetime import datetime
+    today = datetime.utcnow().date()
+    
+    existing_scan = ScanLog.query.filter(
+        ScanLog.user_id == user.id,
+        ScanLog.access_type == active_type,
+        db.func.date(ScanLog.scan_time) == today
+    ).first()
+    
+    if existing_scan:
+        return jsonify({
+            "success": False, 
+            "message": f"ALREADY SCANNED for {active_type}",
+            "user_name": user.full_name or user.username,
+            "access_type": active_type
+        }), 403
+
+    # 5. Success - Record Log
+    new_log = ScanLog(
+        user_id=user.id,
+        access_type=active_type,
+        scan_time=datetime.utcnow(),
+        status="SUCCESS"
+    )
+    db.session.add(new_log)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True, 
+        "message": f"ACCESS GRANTED: {active_type}",
+        "user_name": user.full_name or user.username,
+        "access_type": active_type
+    }), 200
+
+@qr_bp.route("/scanner")
+@require_role(UserRole.ADMIN, UserRole.FACULTY)
+def scanner_page():
+    return render_template("qr/scanner_permanent.html")

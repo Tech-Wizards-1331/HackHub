@@ -4,6 +4,8 @@ from app.extensions import db
 from app.models import User, UserRole
 from app.utils.helpers import generate_qr
 
+import uuid
+
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -56,7 +58,10 @@ def register():
             
             # Store as comma-separated string
             skills_str = ', '.join(all_skills)
-            
+        
+        # Generte persistent QR Token
+        qr_token = str(uuid.uuid4())
+
         user = User(
             username=username,
             email=email,
@@ -65,15 +70,15 @@ def register():
             skills=skills_str,
             college=university_name,
             experience_level=experience_level,
+            qr_token=qr_token
         )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
         
-        # Generate QR code if participant
+        # Generate QR code if participant (using the permanent token)
         if role == UserRole.PARTICIPANT:
-            qr_data = f"PARTICIPANT-{user.id}"
-            qr_path = generate_qr(qr_data, user.id)
+            qr_path = generate_qr(qr_token, user.id)
             user.registration_qr = qr_path
             db.session.commit()
             
