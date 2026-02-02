@@ -2,6 +2,7 @@ from flask import Flask
 from config import Config
 from .extensions import db, migrate, sess
 from sqlalchemy import text
+from sqlalchemy import inspect
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -38,6 +39,8 @@ def create_app(config_class=Config):
         # `create_all()` will not add new columns to existing tables.
         try:
             uri = app.config.get('SQLALCHEMY_DATABASE_URI', '') or ''
+            dialect = db.engine.dialect.name
+
             if uri.startswith('sqlite:'):
                 # Local/dev convenience: ensure base tables exist for SQLite.
                 # Postgres schema should be managed via Alembic (Flask-Migrate) instead.
@@ -61,10 +64,29 @@ def create_app(config_class=Config):
 
                 # Ensure users.created_at exists (needed for registration trends).
                 user_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(users)')).all()]
+                user_desired = {
+                    'created_at': 'DATETIME',
+                    'registration_qr': 'VARCHAR(200)',
+                    'qr_token': 'VARCHAR(36)',
+                    'is_present': 'INTEGER DEFAULT 0',
+                }
+                user_missing = [(name, col_type) for name, col_type in user_desired.items() if name not in user_cols]
+                for name, col_type in user_missing:
+                    db.session.execute(text(f'ALTER TABLE users ADD COLUMN {name} {col_type}'))
+
                 if 'created_at' not in user_cols:
                     db.session.execute(text('ALTER TABLE users ADD COLUMN created_at DATETIME'))
                     db.session.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
                     db.session.commit()
+
+                # Best-effort unique index for qr_token.
+                # Note: SQLite allows multiple NULLs in a unique index.
+                if 'qr_token' in user_desired:
+                    try:
+                        db.session.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ix_users_qr_token ON users (qr_token)'))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
 
                 cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(faculty_assignments)')).all()]
                 if 'assigned_at' not in cols:
@@ -116,6 +138,30 @@ def create_app(config_class=Config):
 
                 if missing:
                     db.session.commit()
+
+            # Render/production Postgres safety net:
+            # If schema is behind the models and Alembic migrations are not deployed,
+            # ensure critical columns exist so core flows (e.g. login) don't crash.
+            if dialect in {'postgresql', 'postgres'}:
+                inspector = inspect(db.engine)
+                try:
+                    cols = {c.get('name') for c in inspector.get_columns('users')}
+
+                    if 'qr_token' not in cols:
+                        db.session.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS qr_token VARCHAR(36)'))
+
+                    if 'is_present' not in cols:
+                        db.session.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_present BOOLEAN DEFAULT FALSE'))
+
+                    if 'registration_qr' not in cols:
+                        db.session.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_qr VARCHAR(200)'))
+
+                    # Unique index for qr_token (NULLs allowed; multiple NULLs are OK)
+                    db.session.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ix_users_qr_token ON users (qr_token)'))
+
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
         except Exception:
             # If migration fails, don't prevent app from starting; route handlers will surface issues.
             db.session.rollback()
