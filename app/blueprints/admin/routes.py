@@ -44,6 +44,11 @@ def create_hackathon():
         max_team_size = request.form.get('max_team_size')
         start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
         
+        end_date_str = request.form.get('end_date')
+        end_date = None
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
+        
         # Meal Config
         enable_breakfast = 'enable_breakfast' in request.form
         enable_lunch = 'enable_lunch' in request.form
@@ -61,6 +66,7 @@ def create_hackathon():
             min_team_size=min_team_size,
             max_team_size=max_team_size,
             start_date=start_date,
+            end_date=end_date,
             enable_breakfast=enable_breakfast,
             enable_lunch=enable_lunch,
             enable_dinner=enable_dinner,

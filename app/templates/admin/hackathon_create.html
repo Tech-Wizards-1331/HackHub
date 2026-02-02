@@ -23,20 +23,24 @@
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-uppercase text-muted">Start Date & Time</label>
-                            <input type="datetime-local" name="start_date" class="form-control">
+                            <input type="datetime-local" name="start_date" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold small text-uppercase text-muted">Max Teams</label>
-                            <input type="number" name="max_teams" class="form-control" value="50" min="1">
+                            <label class="form-label fw-bold small text-uppercase text-muted">End Date & Time</label>
+                            <input type="datetime-local" name="end_date" class="form-control">
                         </div>
                     </div>
 
                     <div class="row mb-4">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Max Teams</label>
+                            <input type="number" name="max_teams" class="form-control" value="50" min="1">
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-uppercase text-muted">Min Team Size</label>
                             <input type="number" name="min_team_size" class="form-control" value="2" min="1">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-uppercase text-muted">Max Team Size</label>
                             <input type="number" name="max_team_size" class="form-control" value="4" min="1">
                         </div>
