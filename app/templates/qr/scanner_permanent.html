@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Permanent QR Scanner</h4>
+                    <span id="connection-status" class="badge bg-light text-dark">Ready</span>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ADMIN CONTROL: Active Access Type -->
+                    <div class="mb-4 p-3 border rounded bg-light">
+                        <label class="fw-bold">Current Active Mode (Admin):</label>
+                        <div class="input-group mt-2">
+                            <select id="access-type-select" class="form-select">
+                                <option value="ENTRY">ENTRY</option>
+                                <option value="LUNCH">LUNCH</option>
+                                <option value="DINNER">DINNER</option>
+                            </select>
+                            <button class="btn btn-warning" onclick="updateAccessType()">Set Active</button>
+                        </div>
+                        <small class="text-muted">Changing this resets the scan validation for the new mode.</small>
+                    </div>
+
+                    <!-- SCANNER VIEWPORT -->
+                    <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
+                    
+                    <!-- RESULTS -->
+                    <div id="scan-result" class="mt-4 text-center" style="display:none;">
+                        <h3 id="result-title" class="fw-bold"></h3>
+                        <p id="result-message" class="lead"></p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+    const accessSelect = document.getElementById('access-type-select');
+    const resultDiv = document.getElementById('scan-result');
+    const resultTitle = document.getElementById('result-title');
+    const resultMsg = document.getElementById('result-message');
+    const statusBadge = document.getElementById('connection-status');
+    
+    let isScanning = true;
+
+    // 1. Load Current Access Type on Load
+    async function loadAccessType() {
+        try {
+            const res = await fetch('/api/qr/active-access');
+            const data = await res.json();
+            accessSelect.value = data.active_access_type;
+        } catch (e) {
+            console.error("Failed to load access type", e);
+        }
+    }
+    loadAccessType();
+
+    // 2. Update Access Type
+    async function updateAccessType() {
+        const newType = accessSelect.value;
+        if(!confirm(`Are you sure you want to set Active Mode to ${newType}?`)) return;
+
+        try {
+            const res = await fetch('/api/qr/active-access', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ access_type: newType })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert(`System is now in ${newType} mode.`);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Network error updating access type');
+        }
+    }
+
+    // 3. Handle Scan Success
+    async function onScanSuccess(decodedText, decodedResult) {
+        if (!isScanning) return;
+        
+        // Prevent rapid duplicate scans locally
+        isScanning = false; 
+        statusBadge.textContent = "Processing...";
+        statusBadge.className = "badge bg-warning text-dark";
+
+        try {
+            const res = await fetch('/api/qr/scan-permanent', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ qr_token: decodedText })
+            });
+            const data = await res.json();
+
+            resultDiv.style.display = 'block';
+            
+            if (data.success) {
+                // SUCCESS
+                resultTitle.textContent = "ACCESS GRANTED";
+                resultTitle.className = "fw-bold text-success";
+                resultMsg.textContent = `${data.user_name} - ${data.access_type}`;
+                
+                // Play sound?
+                // Audio would go here
+
+            } else {
+                // FAILURE / DUPLICATE
+                resultTitle.textContent = "ACCESS DENIED";
+                resultTitle.className = "fw-bold text-danger";
+                resultMsg.innerHTML = `${data.message}<br><small>${data.user_name || ''}</small>`;
+                
+                // If it was ALREADY SCANNED
+                if (data.message.includes("ALREADY")) {
+                    resultTitle.className = "fw-bold text-warning";
+                }
+            }
+
+        } catch (e) {
+            resultTitle.textContent = "ERROR";
+            resultTitle.className = "fw-bold text-danger";
+            resultMsg.textContent = "Network error or Server offline";
+        }
+
+        // Reset scanning after 3 seconds
+        setTimeout(() => {
+            isScanning = true;
+            statusBadge.textContent = "Ready";
+            statusBadge.className = "badge bg-success";
+            resultDiv.style.display = 'none';
+        }, 3000);
+    }
+
+    function onScanFailure(error) {
+        // usually ignore frame failures
+    }
+
+    // 4. Initialize Scanner
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        /* verbose= */ false);
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+</script>
+{% endblock %}
