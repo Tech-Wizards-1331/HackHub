@@ -12,29 +12,44 @@
                 <div class="card-body">
                     
                     <!-- ADMIN CONTROL: Active Access Type -->
-                    <div class="mb-4 p-3 border rounded bg-light">
-                        <label class="fw-bold">Current Active Mode (Admin):</label>
-                        <div class="input-group mt-2">
-                            <select id="access-type-select" class="form-select">
+                    <div class="mb-4 p-4 border rounded text-center" style="background-color: #f8f9fa;">
+                        <h6 class="text-uppercase text-muted fw-bold ls-1">Current Active Event</h6>
+                        <h1 id="display-mode-title" class="display-1 fw-bold text-primary my-2">LOADING...</h1>
+                        
+                        <div class="input-group mt-3 w-75 mx-auto">
+                            <span class="input-group-text bg-white">Switch Mode:</span>
+                            <select id="access-type-select" class="form-select fw-bold">
                                 <option value="ENTRY">ENTRY</option>
                                 <option value="LUNCH">LUNCH</option>
                                 <option value="DINNER">DINNER</option>
                             </select>
-                            <button class="btn btn-warning" onclick="updateAccessType()">Set Active</button>
+                            <button class="btn btn-dark" onclick="updateAccessType()">Update</button>
                         </div>
-                        <small class="text-muted">Changing this resets the scan validation for the new mode.</small>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle"></i> 
+                            Switching modes automatically resets scan eligibility for the new event.
+                        </small>
                     </div>
 
                     <!-- SCANNER VIEWPORT -->
                     <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
                     
-                    <!-- RESULTS -->
-                    <div id="scan-result" class="mt-4 text-center" style="display:none;">
-                        <h3 id="result-title" class="fw-bold"></h3>
-                        <p id="result-message" class="lead"></p>
-                    </div>
-
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="modal fade" id="resultModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center">
+            <div class="modal-body p-5">
+                <div id="modal-icon" class="mb-3" style="font-size: 5rem;"></div>
+                <h2 id="modal-title" class="fw-bold mb-2"></h2>
+                <h4 id="modal-subtitle" class="text-muted"></h4>
+                <div id="modal-details" class="mt-3 text-secondary"></div>
+                <button type="button" class="btn btn-lg btn-outline-secondary mt-4 w-100" data-bs-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -44,10 +59,12 @@
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script>
     const accessSelect = document.getElementById('access-type-select');
-    const resultDiv = document.getElementById('scan-result');
-    const resultTitle = document.getElementById('result-title');
-    const resultMsg = document.getElementById('result-message');
     const statusBadge = document.getElementById('connection-status');
+    const displayTitle = document.getElementById('display-mode-title');
+    
+    // Check if bootstrap is loaded
+    const resultModalEl = document.getElementById('resultModal');
+    let resultModal = null;
     
     let isScanning = true;
 
@@ -57,6 +74,7 @@
             const res = await fetch('/api/qr/active-access');
             const data = await res.json();
             accessSelect.value = data.active_access_type;
+            displayTitle.textContent = data.active_access_type + " MODE";
         } catch (e) {
             console.error("Failed to load access type", e);
         }
@@ -76,7 +94,9 @@
             });
             const data = await res.json();
             if(data.success) {
-                alert(`System is now in ${newType} mode.`);
+                // Update UI immediately
+                displayTitle.textContent = newType + " MODE";
+                // alert(`System is now in ${newType} mode.`); // Optional alert
             } else {
                 alert('Error: ' + data.error);
             }
@@ -90,7 +110,20 @@
         if (!isScanning) return;
         
         // Prevent rapid duplicate scans locally
-        isScanning = false; 
+        isScanning = false;
+        
+        // Ensure modal instance exists
+        if(!resultModal) {
+            resultModal = new bootstrap.Modal(resultModalEl);
+            
+            // Re-enable scanning when modal closes
+            resultModalEl.addEventListener('hidden.bs.modal', function () {
+                isScanning = true;
+                statusBadge.textContent = "Ready";
+                statusBadge.className = "badge bg-success";
+            });
+        }
+
         statusBadge.textContent = "Processing...";
         statusBadge.className = "badge bg-warning text-dark";
 
@@ -101,43 +134,48 @@
                 body: JSON.stringify({ qr_token: decodedText })
             });
             const data = await res.json();
-
-            resultDiv.style.display = 'block';
             
+            const mTitle = document.getElementById('modal-title');
+            const mSubtitle = document.getElementById('modal-subtitle');
+            const mIcon = document.getElementById('modal-icon');
+            const mDetails = document.getElementById('modal-details');
+
             if (data.success) {
                 // SUCCESS
-                resultTitle.textContent = "ACCESS GRANTED";
-                resultTitle.className = "fw-bold text-success";
-                resultMsg.textContent = `${data.user_name} - ${data.access_type}`;
+                mTitle.textContent = "SUCCESSFUL";
+                mTitle.className = "fw-bold mb-2 text-success";
                 
-                // Play sound?
+                mSubtitle.textContent = "Access Granted";
+                mIcon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                
+                mDetails.innerHTML = `<trong>${data.user_name}</strong><br>${data.access_type}`;
+                
                 // Audio would go here
-
             } else {
                 // FAILURE / DUPLICATE
-                resultTitle.textContent = "ACCESS DENIED";
-                resultTitle.className = "fw-bold text-danger";
-                resultMsg.innerHTML = `${data.message}<br><small>${data.user_name || ''}</small>`;
-                
-                // If it was ALREADY SCANNED
                 if (data.message.includes("ALREADY")) {
-                    resultTitle.className = "fw-bold text-warning";
+                     mTitle.textContent = "REJECTED";
+                     mTitle.className = "fw-bold mb-2 text-warning";
+                     
+                     mSubtitle.textContent = "Already Scanned";
+                     mIcon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning"></i>';
+                } else {
+                     mTitle.textContent = "REJECTED";
+                     mTitle.className = "fw-bold mb-2 text-danger";
+                     
+                     mSubtitle.textContent = "Invalid QR";
+                     mIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
                 }
+                mDetails.innerHTML = `${data.message}<br><small>${data.user_name || 'Unknown User'}</small>`;
             }
+            
+            resultModal.show();
 
         } catch (e) {
-            resultTitle.textContent = "ERROR";
-            resultTitle.className = "fw-bold text-danger";
-            resultMsg.textContent = "Network error or Server offline";
-        }
-
-        // Reset scanning after 3 seconds
-        setTimeout(() => {
+            console.error(e);
+            alert("Network Error");
             isScanning = true;
-            statusBadge.textContent = "Ready";
-            statusBadge.className = "badge bg-success";
-            resultDiv.style.display = 'none';
-        }, 3000);
+        }
     }
 
     function onScanFailure(error) {
