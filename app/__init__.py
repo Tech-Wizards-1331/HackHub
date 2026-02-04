@@ -55,6 +55,7 @@ def create_app(config_class=Config):
                     'breakfast_time': 'VARCHAR(5)',
                     'lunch_time': 'VARCHAR(5)',
                     'dinner_time': 'VARCHAR(5)',
+                    'end_date': 'DATETIME',
                 }
                 hack_missing = [(name, col_type) for name, col_type in hack_desired.items() if name not in hack_cols]
                 for name, col_type in hack_missing:

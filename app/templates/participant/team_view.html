@@ -95,130 +95,31 @@
     </div>
 
     <div class="col-lg-5">
-        {% if team.leader_id == session.user_id %}
-            <div class="hh-card hh-card-hover">
-                <div class="p-4 border-b" style="border-color: var(--hh-border);">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-sm hh-muted">Access</div>
-                            <div class="text-lg font-semibold"><i class="bi bi-qr-code-scan me-2"></i>Team QR Codes</div>
-                        </div>
-                        <button class="hh-btn" type="button" onclick="fetchTeamQRs()">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
-                    </div>
+
+        <!-- Permanent Access QR Card (Moved from Dashboard) -->
+        <div class="hh-card mb-4 border-2 border-[var(--hh-accent)]">
+            <div class="p-4 bg-[var(--hh-bg-secondary)] border-b border-[var(--hh-border)] flex justify-between items-center">
+                <div>
+                    <div class="text-sm font-bold text-[var(--hh-accent)]">OFFICIAL ACCESS PASS</div>
+                    <div class="text-xs hh-muted">Scan this at Entry & Meals</div>
                 </div>
-                <div class="p-4">
-                    <div id="qr-loading" class="text-center py-6">
-                        <div class="hh-skeleton" style="height: 14px; width: 180px; margin: 0 auto;"></div>
-                        <div class="hh-skeleton mt-3" style="height: 220px; width: 100%;"></div>
-                        <div class="hh-muted mt-3">Loading QR Codes…</div>
-                    </div>
-
-                    <div id="qr-display" class="grid gap-3 d-none">
-                        <!-- Populated by JS -->
-                    </div>
-
-                    <div id="qr-error" class="hh-card p-3 d-none mt-3" style="border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10);"></div>
-                    <div class="hh-muted text-sm mt-3">Tip: download QRs for backup access.</div>
+                <i class="bi bi-qr-code-scan text-2xl text-[var(--hh-accent)]"></i>
+            </div>
+            <div class="p-6 flex flex-col items-center justify-center text-center">
+                <div class="bg-white p-2 rounded-lg shadow-sm mb-3">
+                    <img src="/api/qr/my-qr-image" alt="My Access QR" class="w-48 h-48 object-contain">
+                </div>
+                <div class="text-sm hh-muted">
+                    <i class="bi bi-person-fill"></i> {{ session.username }}
+                </div>
+                <div class="mt-2 text-xs text-[var(--hh-text-muted)]">
+                    Use this single QR for all event access.<br>
+                    Admin controls active entry mode.
                 </div>
             </div>
+        </div>
 
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    fetchTeamQRs();
-                });
-
-                function fetchTeamQRs() {
-                    const container = document.getElementById('qr-display');
-                    const loading = document.getElementById('qr-loading');
-                    const errorDiv = document.getElementById('qr-error');
-
-                    loading.classList.remove('d-none');
-                    container.classList.add('d-none');
-                    errorDiv.classList.add('d-none');
-                    container.innerHTML = '';
-
-                    fetch('{{ url_for("participant.get_team_qrs", team_id=team.id) }}')
-                        .then(response => {
-                            if (!response.ok) throw new Error('Failed to load QRs');
-                            return response.json();
-                        })
-                        .then(data => {
-                            loading.classList.add('d-none');
-
-                            if (data.status === 'success' && data.qrs.length > 0) {
-                                container.classList.remove('d-none');
-
-                                data.qrs.forEach(qr => {
-                                    const wrap = document.createElement('div');
-                                    wrap.className = 'hh-card hh-card-hover p-4';
-
-                                    let badgeClass = 'hh-badge--neutral';
-                                    let icon = 'bi-qr-code';
-                                    let label = qr.type;
-
-                                    switch (qr.type) {
-                                        case 'ACCESS':
-                                            badgeClass = 'hh-badge--success';
-                                            icon = 'bi-pass-fill';
-                                            label = 'Access';
-                                            break;
-                                        case 'BREAKFAST':
-                                            badgeClass = 'hh-badge--warn';
-                                            icon = 'bi-cup-hot-fill';
-                                            label = 'Breakfast';
-                                            break;
-                                        case 'LUNCH':
-                                            badgeClass = 'hh-badge--info';
-                                            icon = 'bi-sun-fill';
-                                            label = 'Lunch';
-                                            break;
-                                        case 'DINNER':
-                                            badgeClass = 'hh-badge--danger';
-                                            icon = 'bi-moon-stars-fill';
-                                            label = 'Dinner';
-                                            break;
-                                    }
-
-                                    wrap.innerHTML = `
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div>
-                                                <div class="text-sm hh-muted">QR Type</div>
-                                                <div class="font-semibold"><i class="bi ${icon} me-2"></i>${label}</div>
-                                            </div>
-                                            <span class="hh-badge ${badgeClass}"><i class="bi bi-shield-check"></i> Ready</span>
-                                        </div>
-                                        <div class="mt-4 rounded-2xl p-3" style="background: rgba(255,255,255,0.06); border: 1px solid var(--hh-border);">
-                                            <div class="flex items-center justify-center" style="min-height: 220px;">
-                                                <img src="${qr.url}" alt="${qr.type} QR" class="img-fluid" style="max-height: 210px;">
-                                            </div>
-                                        </div>
-                                        <div class="mt-4 flex gap-2">
-                                            <a href="${qr.url}" download="${qr.download_name}" class="hh-btn hh-btn-primary" style="flex: 1;">
-                                                <i class="bi bi-download"></i> Download
-                                            </a>
-                                            <button type="button" class="hh-btn" onclick="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Tip: show this QR at the desk', 'info') : null">
-                                                <i class="bi bi-info-circle"></i>
-                                            </button>
-                                        </div>
-                                    `;
-
-                                    container.appendChild(wrap);
-                                });
-                            } else {
-                                errorDiv.textContent = 'No QRs found for this team.';
-                                errorDiv.classList.remove('d-none');
-                            }
-                        })
-                        .catch(err => {
-                            loading.classList.add('d-none');
-                            errorDiv.textContent = err.message || 'Error loading QR codes';
-                            errorDiv.classList.remove('d-none');
-                        });
-                }
-            </script>
-        {% endif %}
+        <!-- Old QR System Removed -->
 
         {% if team.hackathon.status.name == 'PROBLEM_SELECTION' %}
             <div class="hh-card hh-card-hover">

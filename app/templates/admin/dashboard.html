@@ -51,14 +51,14 @@
         <div class="hh-card hh-card-hover p-4">
             <div class="flex items-start justify-between">
                 <div>
-                    <div class="text-sm hh-muted">Attendance</div>
-                    <div class="text-2xl font-semibold mt-1" data-hh-kpi-attendance>—</div>
+                    <div class="text-sm hh-muted">Attendance (Entry)</div>
+                    <div class="text-2xl font-semibold mt-1">{{ scan_stats.counts.ENTRY }} / {{ scan_stats.total_participants }}</div>
                 </div>
                 <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25);">
                     <i class="bi bi-qr-code-scan"></i>
                 </div>
             </div>
-            <div class="mt-3 text-sm hh-muted" data-hh-kpi-attendance-subtitle>Event-day check-ins</div>
+            <div class="mt-3 text-sm hh-muted">{{ scan_stats.percentages.ENTRY }}% checked in</div>
         </div>
 
         <div class="hh-card hh-card-hover p-4">
@@ -182,11 +182,46 @@
                 </div>
                 <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
                     <div class="flex items-center justify-between mb-2">
-                        <div class="text-sm font-medium">Attendance</div>
-                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> event day</span>
+                        <div class="text-sm font-medium">Live Scan Comparison</div>
+                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-bar-chart"></i> Today</span>
                     </div>
-                    <div class="relative" style="height: 120px;">
-                        <canvas id="hh-chart-attendance"></canvas>
+                    <div class="grid gap-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span><i class="bi bi-pass-fill me-1"></i> Registration</span>
+                                <span>{{ scan_stats.percentages.ENTRY }}% ({{ scan_stats.counts.ENTRY }})</span>
+                            </div>
+                            <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                                <div style="width: {{ scan_stats.percentages.ENTRY }}%; background: var(--hh-accent); height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span><i class="bi bi-cup-hot-fill me-1"></i> Breakfast</span>
+                                <span>{{ scan_stats.percentages.BREAKFAST }}% ({{ scan_stats.counts.BREAKFAST }})</span>
+                            </div>
+                            <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                                <div style="width: {{ scan_stats.percentages.BREAKFAST }}%; background: #f59e0b; height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span><i class="bi bi-sun-fill me-1"></i> Lunch</span>
+                                <span>{{ scan_stats.percentages.LUNCH }}% ({{ scan_stats.counts.LUNCH }})</span>
+                            </div>
+                            <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                                <div style="width: {{ scan_stats.percentages.LUNCH }}%; background: #38bdf8; height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span><i class="bi bi-moon-stars-fill me-1"></i> Dinner</span>
+                                <span>{{ scan_stats.percentages.DINNER }}% ({{ scan_stats.counts.DINNER }})</span>
+                            </div>
+                            <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                                <div style="width: {{ scan_stats.percentages.DINNER }}%; background: #ef4444; height: 100%;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
@@ -218,9 +253,8 @@
     const kpiEvalsSubtitle = document.querySelector('[data-hh-kpi-evals-subtitle]');
 
     const ctxReg = document.getElementById('hh-chart-registrations');
-    const ctxAtt = document.getElementById('hh-chart-attendance');
     const ctxEval = document.getElementById('hh-chart-evaluations');
-    if (!select || !ctxReg || !ctxAtt || !ctxEval || !window.Chart) return;
+    if (!select || !ctxReg || !ctxEval || !window.Chart) return;
 
     const chartColors = {
         text: 'rgba(229,231,235,0.9)',
@@ -251,7 +285,6 @@
     };
 
     let regChart = null;
-    let attChart = null;
     let evalChart = null;
 
     function setStatus(text) {
@@ -328,29 +361,6 @@
                         return label.slice(5); // show MM-DD
                     } } }
                 }
-            }
-        });
-
-        // Attendance chart (2-bar)
-        if (attChart) attChart.destroy();
-        attChart = new Chart(ctxAtt, {
-            type: 'bar',
-            data: {
-                labels: ['Unique', 'Total Scans'],
-                datasets: [
-                    {
-                        label: 'Attendance',
-                        data: [att.checked_in_unique ?? 0, att.checked_in_total_scans ?? 0],
-                        backgroundColor: ['rgba(56,189,248,0.35)', 'rgba(56,189,248,0.18)'],
-                        borderColor: [chartColors.blue, chartColors.blue],
-                        borderWidth: 1,
-                        borderRadius: 10
-                    }
-                ]
-            },
-            options: {
-                ...baseOptions,
-                plugins: { ...baseOptions.plugins, legend: { display: false } }
             }
         });
 

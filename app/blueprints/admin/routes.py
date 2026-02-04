@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, session, current_app
 from . import admin_bp
 from app.extensions import db
-from app.models import Hackathon, HackathonStatus, ProblemStatement, Evaluation, EvaluationCriteria, User, UserRole, FacultyAssignment
+from app.models import Hackathon, HackathonStatus, ProblemStatement, Evaluation, EvaluationCriteria, User, UserRole, FacultyAssignment, ScanLog
 from app.utils.problem_selection import auto_assign_problems
 from functools import wraps
 from datetime import datetime
@@ -31,7 +31,33 @@ def dashboard():
         stats[h.id] = {
             'teams': len(h.teams)
         }
-    return render_template('admin/dashboard.html', hackathons=hackathons, stats=stats)
+    
+    # --- Scan Statistics ---
+    total_participants = User.query.filter_by(role=UserRole.PARTICIPANT).count()
+    if total_participants == 0:
+        total_participants = 1 # Avoid division by zero
+
+    # Get counts for today or all time? Assuming all time for now or latest active hackathon.
+    # But ScanLog is general. 
+    scan_counts = {
+        'ENTRY': ScanLog.query.filter_by(access_type='ENTRY').count(),
+        'BREAKFAST': ScanLog.query.filter_by(access_type='BREAKFAST').count(),
+        'LUNCH': ScanLog.query.filter_by(access_type='LUNCH').count(),
+        'DINNER': ScanLog.query.filter_by(access_type='DINNER').count(),
+    }
+    
+    scan_stats = {
+        'total_participants': total_participants if total_participants > 1 else User.query.filter_by(role=UserRole.PARTICIPANT).count(),
+        'counts': scan_counts,
+        'percentages': {
+            'ENTRY': round((scan_counts['ENTRY'] / total_participants) * 100, 1),
+            'BREAKFAST': round((scan_counts['BREAKFAST'] / total_participants) * 100, 1),
+            'LUNCH': round((scan_counts['LUNCH'] / total_participants) * 100, 1),
+            'DINNER': round((scan_counts['DINNER'] / total_participants) * 100, 1),
+        }
+    }
+
+    return render_template('admin/dashboard.html', hackathons=hackathons, stats=stats, scan_stats=scan_stats)
 
 @admin_bp.route('/create_hackathon', methods=['GET', 'POST'])
 @admin_required
@@ -43,6 +69,11 @@ def create_hackathon():
         min_team_size = request.form.get('min_team_size')
         max_team_size = request.form.get('max_team_size')
         start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
+        
+        end_date_str = request.form.get('end_date')
+        end_date = None
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
         
         # Meal Config
         enable_breakfast = 'enable_breakfast' in request.form
@@ -61,6 +92,7 @@ def create_hackathon():
             min_team_size=min_team_size,
             max_team_size=max_team_size,
             start_date=start_date,
+            end_date=end_date,
             enable_breakfast=enable_breakfast,
             enable_lunch=enable_lunch,
             enable_dinner=enable_dinner,
