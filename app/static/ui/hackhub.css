@@ -20,6 +20,7 @@
   --hh-accent-blue: #38bdf8;
   --hh-accent-green: #22c55e;
   --hh-accent-amber: #f59e0b;
+  --hh-accent: #7c3aed;
   --hh-danger: #ef4444;
   --hh-warning: #f59e0b;
   --hh-info: #38bdf8;
@@ -1308,11 +1309,6 @@ body {
 
 /* Reduced motion for performance and accessibility */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -1327,3 +1323,370 @@ body {
 
 html[data-theme="light"] *::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border: 2px solid rgba(255,255,255,0); background-clip: padding-box; }
 html[data-theme="light"] *::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.24); }
+
+/* ==================== BOOTSTRAP BTN OVERRIDES ==================== */
+/* Ensure Bootstrap .btn classes blend with the dark/light theme. */
+.btn-warning {
+  background: linear-gradient(135deg, rgba(245,158,11,0.85), rgba(234,138,0,0.75));
+  border: 1px solid rgba(245,158,11,0.4);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+.btn-warning:hover {
+  background: linear-gradient(135deg, rgba(245,158,11,0.95), rgba(234,138,0,0.85));
+  border-color: rgba(245,158,11,0.6);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(99,102,241,0.8));
+  border: 1px solid rgba(124,58,237,0.4);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, rgba(124,58,237,1), rgba(99,102,241,0.9));
+  border-color: rgba(124,58,237,0.6);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, rgba(34,197,94,0.85), rgba(22,163,74,0.75));
+  border: 1px solid rgba(34,197,94,0.4);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+.btn-success:hover {
+  background: linear-gradient(135deg, rgba(34,197,94,0.95), rgba(22,163,74,0.85));
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, rgba(239,68,68,0.85), rgba(220,38,38,0.75));
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+.btn-danger:hover {
+  background: linear-gradient(135deg, rgba(239,68,68,0.95), rgba(220,38,38,0.85));
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--hh-border);
+  color: var(--hh-text);
+  border-radius: 12px;
+  transition: all 0.25s ease;
+}
+.btn-outline-secondary:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--hh-border-strong);
+  color: var(--hh-text);
+  transform: translateY(-1px);
+}
+
+html[data-theme="light"] .btn-outline-secondary {
+  background: rgba(248,250,252,0.92);
+  border-color: rgba(15,23,42,0.14);
+  color: var(--hh-text);
+}
+html[data-theme="light"] .btn-outline-secondary:hover {
+  background: rgba(248,250,252,0.98);
+  border-color: rgba(15,23,42,0.22);
+}
+
+/* ==================== FORM CONTROLS DARK THEME ==================== */
+/* Ensure Bootstrap form-control and form-select match dark theme. */
+.form-control,
+.form-select {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid var(--hh-border) !important;
+  color: var(--hh-text) !important;
+  border-radius: 12px;
+  transition: all 0.25s ease;
+}
+.form-control:focus,
+.form-select:focus {
+  background: rgba(255,255,255,0.09) !important;
+  border-color: rgba(124,58,237,0.6) !important;
+  box-shadow: var(--hh-focus) !important;
+  color: var(--hh-text) !important;
+}
+.form-control::placeholder {
+  color: var(--hh-muted-2) !important;
+}
+
+/* Bootstrap alert overrides for dark theme */
+.alert {
+  border-radius: 12px;
+  border: 1px solid var(--hh-border);
+  backdrop-filter: blur(8px);
+}
+.alert-success {
+  background: rgba(34,197,94,0.12);
+  border-color: rgba(34,197,94,0.3);
+  color: #22c55e;
+}
+.alert-danger {
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.3);
+  color: #ef4444;
+}
+.alert-warning {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.3);
+  color: #f59e0b;
+}
+.alert-info {
+  background: rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.3);
+  color: #38bdf8;
+}
+
+html[data-theme="light"] .alert-success {
+  background: rgba(34,197,94,0.08);
+  color: #15803d;
+}
+html[data-theme="light"] .alert-danger {
+  background: rgba(239,68,68,0.08);
+  color: #b91c1c;
+}
+html[data-theme="light"] .alert-warning {
+  background: rgba(245,158,11,0.08);
+  color: #92400e;
+}
+html[data-theme="light"] .alert-info {
+  background: rgba(56,189,248,0.08);
+  color: #0369a1;
+}
+
+/* ==================== TABLE LIGHT THEME ==================== */
+html[data-theme="light"] .hh-table tbody td {
+  border-bottom: 1px solid rgba(15,23,42,0.06);
+}
+html[data-theme="light"] .hh-table tbody tr:hover {
+  background: rgba(15,23,42,0.03);
+}
+
+/* ==================== PROGRESS BARS ==================== */
+html[data-theme="light"] .rounded-full .rounded-full,
+html[data-theme="light"] [style*="background: rgba(255,255,255,0.1)"] {
+  background: rgba(15,23,42,0.08) !important;
+}
+
+/* ==================== MODALS (BOOTSTRAP) ==================== */
+/* Ensure modal content follows the active theme. */
+.modal-content {
+  background: linear-gradient(180deg, var(--hh-panel), var(--hh-panel-strong)) !important;
+  border: 1px solid var(--hh-border) !important;
+  color: var(--hh-text) !important;
+  border-radius: var(--hh-radius) !important;
+  box-shadow: var(--hh-shadow-premium);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--hh-border) !important;
+}
+
+.modal-footer {
+  border-top: 1px solid var(--hh-border) !important;
+}
+
+.modal-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+  opacity: 0.7;
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+html[data-theme="light"] .modal-header .btn-close {
+  filter: none;
+  opacity: 0.6;
+}
+
+html[data-theme="light"] .modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+html[data-theme="light"] .modal-content {
+  background: linear-gradient(180deg, rgba(248,250,252,0.98), rgba(241,245,249,0.96)) !important;
+  border-color: rgba(15,23,42,0.12) !important;
+}
+
+/* ==================== BADGE VARIANT: hh-badge--warning ==================== */
+.hh-badge--warning {
+  border-color: rgba(245,158,11,0.4);
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+}
+
+/* ==================== RESULTS PAGE MEDAL STYLES ==================== */
+.hh-medal-gold {
+  background: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,193,7,0.10));
+  border-color: rgba(255,215,0,0.4) !important;
+}
+
+.hh-medal-silver {
+  background: linear-gradient(135deg, rgba(192,192,192,0.15), rgba(156,163,175,0.10));
+  border-color: rgba(192,192,192,0.35) !important;
+}
+
+.hh-medal-bronze {
+  background: linear-gradient(135deg, rgba(205,127,50,0.15), rgba(180,83,9,0.10));
+  border-color: rgba(205,127,50,0.35) !important;
+}
+
+/* ==================== BG-SECONDARY HELPER ==================== */
+.hh-bg-secondary {
+  background: var(--hh-panel-strong);
+}
+
+/* ==================== TOAST LIGHT THEME ==================== */
+html[data-theme="light"] .hh-toast {
+  background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(241,245,249,0.92));
+  border-color: rgba(15,23,42,0.12);
+  box-shadow: 0 12px 35px rgba(15,23,42,0.10);
+}
+
+/* ==================== LIGHT THEME TRUST CARD ==================== */
+html[data-theme="light"] .hh-trust-card {
+  background: linear-gradient(135deg, rgba(248,250,252,0.8), rgba(241,245,249,0.6));
+  border-color: rgba(15,23,42,0.1);
+}
+
+/* ==================== LIGHT THEME FEATURE CARD ==================== */
+html[data-theme="light"] .hh-feature-card {
+  background: linear-gradient(135deg, rgba(248,250,252,0.82), rgba(241,245,249,0.68));
+  border-color: rgba(15,23,42,0.1);
+}
+
+html[data-theme="light"] .hh-feature-card:hover {
+  border-color: rgba(124,58,237,0.3);
+  box-shadow: 0 20px 50px rgba(15,23,42,0.08);
+}
+
+/* ==================== LIGHT THEME CAPABILITY CARD ==================== */
+html[data-theme="light"] .hh-capability-card {
+  background: linear-gradient(135deg, rgba(248,250,252,0.75), rgba(241,245,249,0.6));
+  border-color: rgba(15,23,42,0.08);
+}
+
+html[data-theme="light"] .hh-capability-card:hover {
+  border-color: rgba(15,23,42,0.14);
+  box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+}
+
+/* ==================== LIGHT THEME CTA CARD ==================== */
+html[data-theme="light"] .hh-cta-card {
+  background: linear-gradient(135deg, rgba(124,58,237,0.06), rgba(99,102,241,0.04));
+  border-color: rgba(124,58,237,0.2);
+}
+
+/* ==================== NAV-TABS (BOOTSTRAP) ==================== */
+.nav-tabs {
+  border-bottom-color: var(--hh-border) !important;
+}
+
+.nav-tabs .nav-link {
+  color: var(--hh-muted) !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px 12px 0 0;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  border-color: var(--hh-border) !important;
+  color: var(--hh-text) !important;
+}
+
+.nav-tabs .nav-link.active {
+  background: var(--hh-panel-strong) !important;
+  border-color: var(--hh-border) var(--hh-border) transparent !important;
+  color: var(--hh-text) !important;
+}
+
+/* ==================== ACCORDION (BOOTSTRAP) ==================== */
+.accordion-item {
+  background: transparent !important;
+  border-color: var(--hh-border) !important;
+}
+
+.accordion-button {
+  background: var(--hh-panel) !important;
+  color: var(--hh-text) !important;
+  border-radius: 12px !important;
+}
+
+.accordion-button:not(.collapsed) {
+  background: var(--hh-panel-strong) !important;
+  color: var(--hh-text) !important;
+  box-shadow: none !important;
+}
+
+.accordion-button::after {
+  filter: invert(1) brightness(1.8);
+}
+
+html[data-theme="light"] .accordion-button::after {
+  filter: none;
+}
+
+.accordion-body {
+  background: transparent;
+  color: var(--hh-text);
+}
+
+/* ==================== LIST GROUP (BOOTSTRAP) ==================== */
+.list-group-item {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: var(--hh-border) !important;
+  color: var(--hh-text) !important;
+}
+
+.list-group-item .text-muted,
+.list-group-item small.text-muted {
+  color: var(--hh-muted) !important;
+}
+
+html[data-theme="light"] .list-group-item {
+  background: rgba(248,250,252,0.8) !important;
+  border-color: rgba(15,23,42,0.1) !important;
+}
+
+/* ==================== FORM-LABEL ==================== */
+.form-label {
+  color: var(--hh-text);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* ==================== BTN-OUTLINE-INFO ==================== */
+.btn-outline-info {
+  color: var(--hh-info);
+  border-color: rgba(56,189,248,0.4);
+  border-radius: 12px;
+  transition: all 0.25s ease;
+}
+
+.btn-outline-info:hover {
+  background: rgba(56,189,248,0.15);
+  border-color: rgba(56,189,248,0.6);
+  color: var(--hh-info);
+}

@@ -3,9 +3,10 @@
 <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-3 mb-5">
     <div>
         <div class="flex items-center gap-2 mb-2">
+            <a href="{{ url_for('participant.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Back</a>
             <span class="hh-badge hh-badge--info"><i class="bi bi-people"></i> Team</span>
             <span class="hh-badge hh-badge--neutral"><i class="bi bi-flag"></i> {{ team.hackathon.name }}</span>
-            {% if team.leader_id == session.user_id %}
+            {% if team.leader_id == session.get('user_id') %}
                 <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader</span>
             {% else %}
                 <span class="hh-badge hh-badge--neutral"><i class="bi bi-person"></i> Member</span>
@@ -16,7 +17,7 @@
     </div>
 
     <div class="flex items-center gap-2">
-        {% if team.leader_id == session.user_id and team.hackathon.status.name == 'REGISTRATION_OPEN' %}
+        {% if team.leader_id == session.get('user_id') and team.hackathon.status.name == 'REGISTRATION_OPEN' %}
             <a class="hh-btn hh-btn-primary" href="{{ url_for('participant.find_members', hackathon_id=team.hackathon_id, team_id=team.id) }}">
                 <i class="bi bi-person-plus"></i> Find Members
             </a>
@@ -60,11 +61,13 @@
                                 {% endif %}
                             </td>
                             <td class="text-right">
-                                {% if team.leader_id == session.user_id and member.user_id != session.user_id %}
-                                    <a href="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="hh-btn hh-btn-danger"
-                                       onclick="return confirm('Remove this member from the team?')">
-                                        <i class="bi bi-person-dash"></i> Remove
-                                    </a>
+                                {% if team.leader_id == session.get('user_id') and member.user_id != session.get('user_id') %}
+                                    <form method="POST" action="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="inline"
+                                          onsubmit="return confirm('Remove this member from the team?')">
+                                        <button type="submit" class="hh-btn hh-btn-danger">
+                                            <i class="bi bi-person-dash"></i> Remove
+                                        </button>
+                                    </form>
                                 {% else %}
                                     <span class="hh-muted text-sm">—</span>
                                 {% endif %}
@@ -96,23 +99,23 @@
 
     <div class="col-lg-5">
 
-        <!-- Permanent Access QR Card (Moved from Dashboard) -->
-        <div class="hh-card mb-4 border-2 border-[var(--hh-accent)]">
-            <div class="p-4 bg-[var(--hh-bg-secondary)] border-b border-[var(--hh-border)] flex justify-between items-center">
+        <!-- Permanent Access QR Card -->
+        <div class="hh-card mb-4" style="border: 2px solid var(--hh-accent);">
+            <div class="p-4 flex justify-between items-center" style="background: var(--hh-bg-secondary); border-bottom: 1px solid var(--hh-border);">
                 <div>
-                    <div class="text-sm font-bold text-[var(--hh-accent)]">OFFICIAL ACCESS PASS</div>
+                    <div class="text-sm font-bold" style="color: var(--hh-accent);">OFFICIAL ACCESS PASS</div>
                     <div class="text-xs hh-muted">Scan this at Entry & Meals</div>
                 </div>
-                <i class="bi bi-qr-code-scan text-2xl text-[var(--hh-accent)]"></i>
+                <i class="bi bi-qr-code-scan text-2xl" style="color: var(--hh-accent);"></i>
             </div>
             <div class="p-6 flex flex-col items-center justify-center text-center">
                 <div class="bg-white p-2 rounded-lg shadow-sm mb-3">
-                    <img src="/api/qr/my-qr-image" alt="My Access QR" class="w-48 h-48 object-contain">
+                    <img src="/api/qr/my-qr-image" alt="My Access QR" style="width: 12rem; height: 12rem; object-fit: contain;">
                 </div>
                 <div class="text-sm hh-muted">
                     <i class="bi bi-person-fill"></i> {{ session.username }}
                 </div>
-                <div class="mt-2 text-xs text-[var(--hh-text-muted)]">
+                <div class="mt-2 text-xs hh-muted">
                     Use this single QR for all event access.<br>
                     Admin controls active entry mode.
                 </div>
@@ -138,7 +141,7 @@
                                 </a>
                             </div>
                         </div>
-                    {% elif team.leader_id == session.user_id %}
+                    {% elif team.leader_id == session.get('user_id') %}
                         <div class="hh-muted">Choose one problem statement to commit your team.</div>
                         <div class="grid gap-3 mt-4">
                             {% for problem in available_problems %}

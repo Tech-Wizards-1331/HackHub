@@ -44,12 +44,12 @@
                     </thead>
                     <tbody>
                         {% for result in results %}
-                        <tr>
+                        <tr class="{% if loop.index == 1 %}hh-medal-gold{% elif loop.index == 2 %}hh-medal-silver{% elif loop.index == 3 %}hh-medal-bronze{% endif %}">
                             <td>
                                 {% if loop.index == 1 %}
-                                    <span class="hh-badge hh-badge--warn"><i class="bi bi-award"></i> #1</span>
+                                    <span class="hh-badge hh-badge--warning"><i class="bi bi-trophy-fill"></i> #1</span>
                                 {% elif loop.index == 2 %}
-                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-award"></i> #2</span>
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-award-fill"></i> #2</span>
                                 {% elif loop.index == 3 %}
                                     <span class="hh-badge hh-badge--neutral"><i class="bi bi-award"></i> #3</span>
                                 {% else %}
@@ -61,7 +61,7 @@
                                 <div class="text-sm hh-muted">Team</div>
                             </td>
                             <td style="text-align:right;">
-                                <div class="font-semibold">{{ result.score }} / 40</div>
+                                <div class="font-semibold">{{ result.score }}</div>
                                 <div class="text-sm hh-muted">Auto-calculated</div>
                             </td>
                         </tr>

@@ -9,7 +9,7 @@ def faculty_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'faculty':
-            flash('Faculty access only')
+            flash('Faculty access only', 'error')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -102,7 +102,7 @@ def evaluate_teams_list(hackathon_id):
     # Check assignment
     assignment = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id, faculty_id=session['user_id']).first()
     if not assignment:
-        flash("You are not assigned to this hackathon.")
+        flash("You are not assigned to this hackathon.", "error")
         return redirect(url_for('faculty.dashboard'))
         
     hackathon = Hackathon.query.get_or_404(hackathon_id)
@@ -146,12 +146,13 @@ def evaluate_team(team_id):
             technical = int(request.form.get('technical_score'))
             uiux = int(request.form.get('uiux_score'))
             practicality = int(request.form.get('practicality_score'))
-            
-            if any(score < 0 or score > 10 for score in [innovation, technical, uiux, practicality]):
+            presentation = int(request.form.get('presentation_score'))
+
+            if any(score < 0 or score > 10 for score in [innovation, technical, uiux, practicality, presentation]):
                 raise ValueError("Scores must be 0-10")
-                
-            total_score = innovation + technical + uiux + practicality
-            
+
+            total_score = innovation + technical + uiux + practicality + presentation
+
             evaluation = Evaluation(
                 hackathon_id=team.hackathon_id,
                 team_id=team.id,
@@ -162,11 +163,12 @@ def evaluate_team(team_id):
                 technical_score=technical,
                 uiux_score=uiux,
                 practicality_score=practicality,
+                presentation_score=presentation,
                 total_score=total_score
             )
             db.session.add(evaluation)
             db.session.commit()
-            flash("Evaluation submitted")
+            flash("Evaluation submitted", "success")
             return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
             
         except ValueError:

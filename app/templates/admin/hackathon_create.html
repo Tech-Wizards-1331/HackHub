@@ -1,75 +1,134 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0 fw-bold text-primary">Create New Hackathon</h4>
-                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
+<div class="flex flex-col gap-4">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('admin.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-plus-circle"></i> New Event</span>
             </div>
-            <div class="card-body p-4">
-                <p class="text-muted mb-4">Fill in the details to launch a new event.</p>
-                <form method="POST">
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-uppercase text-muted">Hackathon Name</label>
-                        <input type="text" name="name" class="form-control form-control-lg" placeholder="e.g. Winter Code Fest 2024" required>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-uppercase text-muted">Description</label>
-                        <textarea name="description" class="form-control" rows="4" placeholder="Brief description of the event..."></textarea>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-uppercase text-muted">Start Date & Time</label>
-                            <input type="datetime-local" name="start_date" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-uppercase text-muted">End Date & Time</label>
-                            <input type="datetime-local" name="end_date" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-uppercase text-muted">Max Teams</label>
-                            <input type="number" name="max_teams" class="form-control" value="50" min="1">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-uppercase text-muted">Min Team Size</label>
-                            <input type="number" name="min_team_size" class="form-control" value="2" min="1">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold small text-uppercase text-muted">Max Team Size</label>
-                            <input type="number" name="max_team_size" class="form-control" value="4" min="1">
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-uppercase text-muted">Meal Configuration</label>
-                        <div class="card p-3 border-0">
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast">
-                                <label class="form-check-label" for="checkBreakfast">Enable Breakfast QR</label>
-                            </div>
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch">
-                                <label class="form-check-label" for="checkLunch">Enable Lunch QR</label>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner">
-                                <label class="form-check-label" for="checkDinner">Enable Dinner QR</label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="submit" class="btn btn-primary btn-lg px-5">Create Hackathon</button>
-                    </div>
-                </form>
-            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Create Hackathon</h1>
+            <p class="hh-muted mt-1">Fill in the details to launch a new event.</p>
         </div>
     </div>
+
+    <form method="POST">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 flex flex-col gap-4">
+                <div class="hh-card p-4">
+                    <div class="text-sm hh-muted">Basic info</div>
+                    <h2 class="text-lg font-semibold">Event details</h2>
+
+                    <div class="mt-4">
+                        <label class="text-sm font-medium hh-muted">Hackathon Name</label>
+                        <input type="text" name="name" class="form-control mt-2" placeholder="e.g., Winter Code Fest 2024" required>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="text-sm font-medium hh-muted">Description</label>
+                        <textarea name="description" class="form-control mt-2" rows="4" placeholder="Brief description of the event..."></textarea>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="text-sm font-medium hh-muted">Venue</label>
+                        <input type="text" name="venue" class="form-control mt-2" placeholder="e.g., Main Auditorium, Building A">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="text-sm font-medium hh-muted">Start Date &amp; Time</label>
+                            <input type="datetime-local" name="start_date" class="form-control mt-2" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium hh-muted">End Date &amp; Time</label>
+                            <input type="datetime-local" name="end_date" class="form-control mt-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hh-card p-4">
+                    <div class="text-sm hh-muted">Configuration</div>
+                    <h2 class="text-lg font-semibold">Team settings</h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="text-sm font-medium hh-muted">Max Teams</label>
+                            <input type="number" name="max_teams" class="form-control mt-2" value="50" min="1">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium hh-muted">Min Team Size</label>
+                            <input type="number" name="min_team_size" class="form-control mt-2" value="2" min="1">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium hh-muted">Max Team Size</label>
+                            <input type="number" name="max_team_size" class="form-control mt-2" value="4" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div class="hh-card p-4">
+                    <div class="text-sm hh-muted">Optional</div>
+                    <h2 class="text-lg font-semibold">Meal configuration</h2>
+                    <p class="hh-muted text-sm mt-1">Enable QR-based meal tracking for your event.</p>
+
+                    <div class="mt-4 grid gap-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast">
+                            <label class="form-check-label" for="checkBreakfast">Enable Breakfast QR</label>
+                        </div>
+                        <div id="breakfastTimeWrap" style="display:none;" class="ms-4">
+                            <label class="text-sm hh-muted">Breakfast Time</label>
+                            <input type="time" name="breakfast_time" class="form-control mt-1" value="07:00">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch">
+                            <label class="form-check-label" for="checkLunch">Enable Lunch QR</label>
+                        </div>
+                        <div id="lunchTimeWrap" style="display:none;" class="ms-4">
+                            <label class="text-sm hh-muted">Lunch Time</label>
+                            <input type="time" name="lunch_time" class="form-control mt-1" value="12:30">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner">
+                            <label class="form-check-label" for="checkDinner">Enable Dinner QR</label>
+                        </div>
+                        <div id="dinnerTimeWrap" style="display:none;" class="ms-4">
+                            <label class="text-sm hh-muted">Dinner Time</label>
+                            <input type="time" name="dinner_time" class="form-control mt-1" value="19:00">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hh-card p-4">
+                    <div class="text-sm hh-muted">Ready?</div>
+                    <h2 class="text-lg font-semibold">Launch event</h2>
+                    <p class="hh-muted text-sm mt-1">Your hackathon will start as a Draft. Update status later to open registrations.</p>
+                    <button type="submit" class="hh-btn hh-btn-primary w-full mt-4">
+                        <i class="bi bi-rocket-takeoff"></i> Create Hackathon
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggles = [
+        { check: 'checkBreakfast', wrap: 'breakfastTimeWrap' },
+        { check: 'checkLunch', wrap: 'lunchTimeWrap' },
+        { check: 'checkDinner', wrap: 'dinnerTimeWrap' }
+    ];
+    toggles.forEach(function(t) {
+        var cb = document.getElementById(t.check);
+        var wrap = document.getElementById(t.wrap);
+        if (cb && wrap) {
+            cb.addEventListener('change', function() {
+                wrap.style.display = cb.checked ? 'block' : 'none';
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

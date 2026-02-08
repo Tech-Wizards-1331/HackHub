@@ -14,7 +14,7 @@
             <div class="text-sm hh-muted">Total score</div>
             <div class="flex items-center justify-between">
                 <div class="text-2xl font-semibold" id="totalScore">0</div>
-                <span class="hh-badge hh-badge--neutral"><i class="bi bi-calculator"></i> / 40</span>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-calculator"></i> / <span id="maxScore">40</span></span>
             </div>
         </div>
     </div>
@@ -73,6 +73,19 @@
         </div>
 
         <div class="lg:col-span-2 hh-card p-4">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold">Presentation</h2>
+                    <p class="hh-muted text-sm mt-1">Quality of demo, communication, and pitch delivery.</p>
+                </div>
+                <span class="hh-badge hh-badge--info"><i class="bi bi-easel2"></i> 0–10</span>
+            </div>
+            <div class="mt-3">
+                <input type="number" name="presentation_score" min="0" max="10" class="form-control score-input" required placeholder="0">
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 hh-card p-4">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                     <div class="text-sm hh-muted">Submit</div>
@@ -92,6 +105,8 @@
     document.addEventListener('DOMContentLoaded', function () {
         const inputs = Array.from(document.querySelectorAll('.score-input'));
         const totalEl = document.getElementById('totalScore');
+        const maxEl = document.getElementById('maxScore');
+        if (maxEl) maxEl.textContent = String(inputs.length * 10);
 
         function clamp(v) {
             if (Number.isNaN(v)) return 0;

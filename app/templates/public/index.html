@@ -31,7 +31,7 @@
 
                     <!-- CTAs -->
                     <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-5" data-aos="fade-up" data-aos-delay="300">
-                        {% if not session.user_id %}
+                        {% if not session.get('user_id') %}
                             <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('auth.register') }}">
                                 Get Started
                                 <i class="bi bi-arrow-right ms-2"></i>
@@ -41,10 +41,22 @@
                                 <i class="bi bi-box-arrow-in-right ms-2"></i>
                             </a>
                         {% else %}
-                            <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('participant.dashboard') }}">
-                                Go to Dashboard
-                                <i class="bi bi-arrow-right ms-2"></i>
-                            </a>
+                            {% if session.get('role') == 'admin' %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('admin.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% elif session.get('role') == 'faculty' %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('faculty.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% else %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('participant.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -274,7 +286,7 @@
                         Get started in minutes, no credit card required.
                     </p>
                     <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-                        {% if not session.user_id %}
+                        {% if not session.get('user_id') %}
                             <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('auth.register') }}">
                                 Get Started Free
                                 <i class="bi bi-arrow-right ms-2"></i>
@@ -284,10 +296,22 @@
                                 <i class="bi bi-box-arrow-in-right ms-2"></i>
                             </a>
                         {% else %}
-                            <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('participant.dashboard') }}">
-                                Go to Dashboard
-                                <i class="bi bi-arrow-right ms-2"></i>
-                            </a>
+                            {% if session.get('role') == 'admin' %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('admin.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% elif session.get('role') == 'faculty' %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('faculty.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% else %}
+                                <a class="hh-btn-hero hh-btn-hero-primary" href="{{ url_for('participant.dashboard') }}">
+                                    Go to Dashboard
+                                    <i class="bi bi-arrow-right ms-2"></i>
+                                </a>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
