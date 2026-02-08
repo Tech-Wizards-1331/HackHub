@@ -17,7 +17,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'admin':
-            flash('Admin access only')
+            flash('Admin access only', 'error')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -33,21 +33,18 @@ def dashboard():
         }
     
     # --- Scan Statistics ---
-    total_participants = User.query.filter_by(role=UserRole.PARTICIPANT).count()
-    if total_participants == 0:
-        total_participants = 1 # Avoid division by zero
+    real_participant_count = User.query.filter_by(role=UserRole.PARTICIPANT).count()
+    total_participants = real_participant_count if real_participant_count > 0 else 1
 
-    # Get counts for today or all time? Assuming all time for now or latest active hackathon.
-    # But ScanLog is general. 
     scan_counts = {
         'ENTRY': ScanLog.query.filter_by(access_type='ENTRY').count(),
         'BREAKFAST': ScanLog.query.filter_by(access_type='BREAKFAST').count(),
         'LUNCH': ScanLog.query.filter_by(access_type='LUNCH').count(),
         'DINNER': ScanLog.query.filter_by(access_type='DINNER').count(),
     }
-    
+
     scan_stats = {
-        'total_participants': total_participants if total_participants > 1 else User.query.filter_by(role=UserRole.PARTICIPANT).count(),
+        'total_participants': real_participant_count,
         'counts': scan_counts,
         'percentages': {
             'ENTRY': round((scan_counts['ENTRY'] / total_participants) * 100, 1),
@@ -65,6 +62,7 @@ def create_hackathon():
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
+        venue = request.form.get('venue', '').strip()
         max_teams = request.form.get('max_teams')
         min_team_size = request.form.get('min_team_size')
         max_team_size = request.form.get('max_team_size')
@@ -86,8 +84,9 @@ def create_hackathon():
         dinner_time = request.form.get('dinner_time', '')        # e.g., "18:00"
         
         hackathon = Hackathon(
-            name=name, 
+            name=name,
             description=description,
+            venue=venue if venue else None,
             max_teams=max_teams,
             min_team_size=min_team_size,
             max_team_size=max_team_size,
@@ -102,7 +101,7 @@ def create_hackathon():
         )
         db.session.add(hackathon)
         db.session.commit()
-        flash('Hackathon created')
+        flash('Hackathon created', 'success')
         return redirect(url_for('admin.dashboard'))
     return render_template('admin/hackathon_create.html')
 
@@ -138,7 +137,7 @@ def manage_hackathon(id):
         elif status_str:
             hackathon.status = HackathonStatus[status_str]
             db.session.commit()
-            flash('Status updated')
+            flash('Status updated', 'success')
     
     # Fetch current criteria configuration
     current_criteria = EvaluationCriteria.query.filter_by(hackathon_id=id).all()
@@ -154,7 +153,7 @@ def upload_problem_statement(id):
     hackathon = Hackathon.query.get_or_404(id)
     
     if 'pdf_file' not in request.files:
-        flash('No file part')
+        flash('No file part', 'error')
         return redirect(url_for('admin.manage_hackathon', id=id))
         
     file = request.files['pdf_file']
@@ -162,7 +161,7 @@ def upload_problem_statement(id):
     max_teams = request.form.get('max_teams', 50) # default or form value
     
     if file.filename == '':
-        flash('No selected file')
+        flash('No selected file', 'error')
         return redirect(url_for('admin.manage_hackathon', id=id))
         
     if file and allowed_file(file.filename):
@@ -190,9 +189,9 @@ def upload_problem_statement(id):
         
         db.session.add(problem)
         db.session.commit()
-        flash('Problem Statement uploaded successfully')
+        flash('Problem Statement uploaded successfully', 'success')
     else:
-        flash('Invalid file type. Only PDF allowed.')
+        flash('Invalid file type. Only PDF allowed.', 'error')
         
     return redirect(url_for('admin.manage_hackathon', id=id))
 

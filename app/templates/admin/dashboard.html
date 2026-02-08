@@ -108,10 +108,18 @@
                                     <span class="hh-badge hh-badge--success"><i class="bi bi-unlock"></i> Registration Open</span>
                                 {% elif hackathon.status.name == 'DRAFT' %}
                                     <span class="hh-badge hh-badge--neutral"><i class="bi bi-pencil"></i> Draft</span>
+                                {% elif hackathon.status.name == 'REGISTRATION_CLOSED' %}
+                                    <span class="hh-badge hh-badge--warn"><i class="bi bi-lock"></i> Registration Closed</span>
                                 {% elif hackathon.status.name == 'PROBLEM_SELECTION' %}
                                     <span class="hh-badge hh-badge--warn"><i class="bi bi-list-check"></i> Problem Selection</span>
+                                {% elif hackathon.status.name == 'ONGOING' %}
+                                    <span class="hh-badge hh-badge--info"><i class="bi bi-play-circle"></i> Ongoing</span>
+                                {% elif hackathon.status.name == 'EVALUATION' %}
+                                    <span class="hh-badge hh-badge--warn"><i class="bi bi-clipboard-data"></i> Evaluation</span>
                                 {% elif hackathon.status.name == 'RESULT_PUBLISHED' %}
-                                    <span class="hh-badge hh-badge--info"><i class="bi bi-megaphone"></i> Results Published</span>
+                                    <span class="hh-badge hh-badge--success"><i class="bi bi-megaphone"></i> Results Published</span>
+                                {% elif hackathon.status.name == 'ARCHIVED' %}
+                                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-archive"></i> Archived</span>
                                 {% else %}
                                     <span class="hh-badge hh-badge--neutral"><i class="bi bi-dot"></i> {{ hackathon.status.value }}</span>
                                 {% endif %}

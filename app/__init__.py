@@ -3,6 +3,7 @@ from config import Config
 from .extensions import db, migrate, sess
 from sqlalchemy import text
 from sqlalchemy import inspect
+from datetime import datetime
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -28,7 +29,11 @@ def create_app(config_class=Config):
     app.register_blueprint(participant_bp, url_prefix='/participant')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(qr_bp)
-    
+
+    @app.context_processor
+    def inject_globals():
+        return {'now_year': datetime.now().year}
+
     @app.route('/')
     def index():
         from flask import render_template
@@ -76,8 +81,9 @@ def create_app(config_class=Config):
                     db.session.execute(text(f'ALTER TABLE users ADD COLUMN {name} {col_type}'))
 
                 if 'created_at' not in user_cols:
-                    db.session.execute(text('ALTER TABLE users ADD COLUMN created_at DATETIME'))
                     db.session.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
+
+                if user_missing:
                     db.session.commit()
 
                 # Best-effort unique index for qr_token.

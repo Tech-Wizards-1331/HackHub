@@ -9,7 +9,8 @@ from functools import wraps
 import uuid
 
 
-def _parse_registered_skills(skills: str | None) -> list[str]:
+def _parse_registered_skills(skills):
+    """Parse comma-separated skills string into a list."""
     if not skills:
         return []
     return [s.strip() for s in skills.split(',') if s.strip()]
@@ -112,12 +113,11 @@ def view_team(team_id):
         flash("Access Denied", 'error')
         return redirect(url_for('participant.dashboard'))
     
-    # Filter available problems: Only those not selected by ANY team
+    # Filter available problems: Only those not at capacity
     available_problems = []
     if team.hackathon.status == HackathonStatus.PROBLEM_SELECTION:
         all_problems = ProblemStatement.query.filter_by(hackathon_id=team.hackathon_id).all()
-        # "Show only problems NOT selected by any team"
-        available_problems = [p for p in all_problems if len(p.teams) == 0]
+        available_problems = [p for p in all_problems if len(p.teams) < p.max_team_limit]
         
     return render_template('participant/team_view.html', team=team, available_problems=available_problems)
 
@@ -150,12 +150,13 @@ def get_team_problem():
     
     return jsonify({'status': 'none', 'message': 'No problem selected'})
 
-@participant_bp.route('/team/<int:team_id>/member/<int:member_id>/remove')
+@participant_bp.route('/team/<int:team_id>/member/<int:member_id>/remove', methods=['POST'])
 @participant_required
 def remove_member(team_id, member_id):
     team = Team.query.get_or_404(team_id)
     if team.leader_id != session['user_id']:
-        return "Unauthorized"
+        flash('Only the team leader can remove members.', 'error')
+        return redirect(url_for('participant.view_team', team_id=team.id))
         
     member = TeamMember.query.get_or_404(member_id)
     user = User.query.get(member.user_id)
@@ -198,16 +199,18 @@ def accept_team_request(request_id):
         flash('Team is full.', 'error')
         return redirect(url_for('participant.dashboard'))
 
-    existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == user_id).first()
+    # Check if the requester is already in a team
+    requester_id = join_request.requested_by_id
+    existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == requester_id).first()
     if existing_membership:
-        flash('You are already registered in a team.', 'error')
+        flash('The requester is already registered in a team.', 'error')
         return redirect(url_for('participant.dashboard'))
 
     try:
-        new_member = TeamMember(team_id=team.id, user_id=user_id)
+        new_member = TeamMember(team_id=team.id, user_id=requester_id)
         db.session.add(new_member)
 
-        participant = User.query.get(user_id)
+        participant = User.query.get(requester_id)
         if participant:
             participant.is_public = False
 
@@ -215,7 +218,7 @@ def accept_team_request(request_id):
         join_request.responded_at = datetime.utcnow()
 
         db.session.commit()
-        flash('Team request accepted. You have joined the team.', 'success')
+        flash('Team request accepted. The member has joined your team.', 'success')
     except Exception:
         db.session.rollback()
         flash('Failed to accept the request. Please try again.', 'error')

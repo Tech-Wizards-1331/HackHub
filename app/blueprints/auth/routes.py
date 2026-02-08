@@ -12,7 +12,7 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        role_str = request.form.get('role').upper()
+        role_str = (request.form.get('role') or 'participant').upper()
         full_name = request.form.get('full_name')
         university_name = (request.form.get('university_name') or '').strip()
         experience_level = (request.form.get('experience_level') or '').strip()
@@ -27,7 +27,7 @@ def register():
             return redirect(url_for('auth.register'))
         
         if User.query.filter_by(email=email).first():
-            flash('Email already exists')
+            flash('Email already exists', 'error')
             return redirect(url_for('auth.register'))
             
         try:
@@ -82,7 +82,7 @@ def register():
             user.registration_qr = qr_path
             db.session.commit()
             
-        flash('Registration successful')
+        flash('Registration successful', 'success')
         return redirect(url_for('auth.login'))
         
     return render_template('auth/register.html')
@@ -106,7 +106,7 @@ def login():
             else:
                 return redirect(url_for('participant.dashboard'))
         
-        flash('Invalid credentials')
+        flash('Invalid credentials', 'error')
     return render_template('auth/login.html')
 
 @auth_bp.route('/logout')
