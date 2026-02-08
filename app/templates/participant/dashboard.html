@@ -109,10 +109,10 @@
                                     <td>
                                         <div class="text-sm">
                                             {% if membership.team.hackathon.start_date %}
-                                                <div><i class="bi bi-calendar-event me-1"></i>{{ membership.team.hackathon.start_date.strftime('%b %d, %Y') }}</div>
+                                                <div><i class="bi bi-calendar-event me-1"></i>{{ membership.team.hackathon.start_date.strftime('%b %d, %Y %H:%M') }}</div>
                                             {% endif %}
                                             {% if membership.team.hackathon.end_date %}
-                                                <div class="hh-muted"><i class="bi bi-calendar-check me-1"></i>{{ membership.team.hackathon.end_date.strftime('%b %d, %Y') }}</div>
+                                                <div class="hh-muted"><i class="bi bi-calendar-check me-1"></i>{{ membership.team.hackathon.end_date.strftime('%b %d, %Y %H:%M') }}</div>
                                             {% endif %}
                                             {% if not membership.team.hackathon.start_date and not membership.team.hackathon.end_date %}
                                                 <span class="hh-muted">TBD</span>
@@ -174,11 +174,11 @@
                             </div>
                             <div class="flex flex-wrap gap-2 mt-3 mb-3">
                                 <span class="hh-badge hh-badge--neutral text-xs">
-                                    <i class="bi bi-calendar-event me-1"></i>{{ h.start_date.strftime('%b %d, %Y') if h.start_date else 'TBD' }}
+                                    <i class="bi bi-calendar-event me-1"></i>{{ h.start_date.strftime('%b %d, %Y %H:%M') if h.start_date else 'TBD' }}
                                 </span>
                                 {% if h.end_date %}
                                 <span class="hh-badge hh-badge--neutral text-xs">
-                                    <i class="bi bi-calendar-check me-1"></i>{{ h.end_date.strftime('%b %d, %Y') }}
+                                    <i class="bi bi-calendar-check me-1"></i>{{ h.end_date.strftime('%b %d, %Y %H:%M') }}
                                 </span>
                                 {% endif %}
                                 {% if h.venue %}

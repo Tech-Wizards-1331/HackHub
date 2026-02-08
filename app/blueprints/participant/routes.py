@@ -36,7 +36,11 @@ def dashboard():
         status='PENDING'
     ).order_by(TeamJoinRequest.created_at.desc()).all()
     
-    open_hackathons = Hackathon.query.filter_by(status=HackathonStatus.REGISTRATION_OPEN).all()
+    # If the participant is already registered in any hackathon (via team membership),
+    # don't show registration cards again.
+    open_hackathons = []
+    if not my_memberships:
+        open_hackathons = Hackathon.query.filter_by(status=HackathonStatus.REGISTRATION_OPEN).all()
     
     return render_template('participant/dashboard.html', 
                            my_memberships=my_memberships, 
@@ -157,12 +161,27 @@ def remove_member(team_id, member_id):
     if team.leader_id != session['user_id']:
         flash('Only the team leader can remove members.', 'error')
         return redirect(url_for('participant.view_team', team_id=team.id))
-        
-    member = TeamMember.query.get_or_404(member_id)
+
+    # Ensure the membership row actually belongs to this team.
+    member = TeamMember.query.filter_by(id=member_id, team_id=team.id).first_or_404()
+
+    # Never allow removing the team leader.
+    if member.user_id == team.leader_id:
+        flash('You cannot remove the team leader.', 'error')
+        return redirect(url_for('participant.view_team', team_id=team.id))
+
     user = User.query.get(member.user_id)
-    if user:
-        user.is_public = False
     db.session.delete(member)
+
+    # Clean up any join requests for this team/user (pending/accepted/etc.)
+    TeamJoinRequest.query.filter_by(team_id=team.id, user_id=member.user_id).delete(synchronize_session=False)
+
+    # If the participant is now solo again, make them discoverable.
+    # (Find Members list only shows `is_public == True`.)
+    if user:
+        remaining_memberships = TeamMember.query.filter_by(user_id=user.id).count()
+        if remaining_memberships == 0:
+            user.is_public = True
     db.session.commit()
     return redirect(url_for('participant.view_team', team_id=team.id))
 
@@ -199,18 +218,30 @@ def accept_team_request(request_id):
         flash('Team is full.', 'error')
         return redirect(url_for('participant.dashboard'))
 
-    # Check if the requester is already in a team
-    requester_id = join_request.requested_by_id
-    existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == requester_id).first()
+    # The participant accepting this request is `join_request.user_id` (matches session user).
+    # Policy: a participant can only be registered in ONE hackathon/team at a time.
+    existing_membership = TeamMember.query.filter(TeamMember.user_id == join_request.user_id).first()
     if existing_membership:
-        flash('The requester is already registered in a team.', 'error')
+        if existing_membership.team_id == team.id:
+            # Already joined this team; finalize request status.
+            try:
+                join_request.status = 'ACCEPTED'
+                join_request.responded_at = datetime.utcnow()
+                db.session.commit()
+                flash('You are already in this team.', 'info')
+            except Exception:
+                db.session.rollback()
+                flash('Failed to update request status. Please try again.', 'error')
+            return redirect(url_for('participant.dashboard'))
+
+        flash('You are already registered in a team.', 'error')
         return redirect(url_for('participant.dashboard'))
 
     try:
-        new_member = TeamMember(team_id=team.id, user_id=requester_id)
+        new_member = TeamMember(team_id=team.id, user_id=join_request.user_id)
         db.session.add(new_member)
 
-        participant = User.query.get(requester_id)
+        participant = User.query.get(join_request.user_id)
         if participant:
             participant.is_public = False
 

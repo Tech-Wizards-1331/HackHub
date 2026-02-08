@@ -31,14 +31,13 @@ def get_solo_participants(hackathon_id):
     
     skills_filter = request.args.get('skills', '').strip()
     
-    # Get users who are participants AND not in any team for this hackathon AND is_public = TRUE
+    # Get users who are participants AND not in any team (already registered in some hackathon)
+    # AND is_public = TRUE.
     solo_query = db.session.query(User).filter(
         User.role == UserRole.PARTICIPANT,
         User.is_public == True,
         ~User.id.in_(
-            db.session.query(TeamMember.user_id).join(Team).filter(
-                Team.hackathon_id == hackathon_id
-            )
+            db.session.query(TeamMember.user_id)
         )
     )
     

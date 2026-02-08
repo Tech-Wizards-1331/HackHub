@@ -62,10 +62,12 @@
                             </td>
                             <td class="text-right">
                                 {% if team.leader_id == session.get('user_id') and member.user_id != session.get('user_id') %}
-                                    <a href="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="hh-btn hh-btn-danger"
-                                       onclick="return confirm('Remove this member from the team?')">
-                                        <i class="bi bi-person-dash"></i> Remove
-                                    </a>
+                                    <form method="POST" action="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="inline"
+                                          onsubmit="return confirm('Remove this member from the team?')">
+                                        <button type="submit" class="hh-btn hh-btn-danger">
+                                            <i class="bi bi-person-dash"></i> Remove
+                                        </button>
+                                    </form>
                                 {% else %}
                                     <span class="hh-muted text-sm">—</span>
                                 {% endif %}
