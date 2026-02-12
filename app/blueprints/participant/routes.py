@@ -1,12 +1,13 @@
 from flask import render_template, request, session, redirect, url_for, flash
 from . import participant_bp
 from app.extensions import db
-from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, ProblemStatement, TeamQR, TeamJoinRequest
+from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, ProblemStatement, TeamQR, TeamJoinRequest, TeamRosterMember
 from datetime import datetime
 from flask import jsonify, current_app
 from app.utils.qr_manager import generate_team_qrs
 from functools import wraps
 import uuid
+import re
 
 
 def _parse_registered_skills(skills):
@@ -57,6 +58,15 @@ def register_hackathon(hackathon_id):
     user_id = session.get('user_id')
     user = User.query.get(user_id) if user_id else None
     existing_skills = user.skills if user else ''
+    leader_profile = None
+    if user:
+        leader_profile = {
+            'full_name': user.full_name or user.username,
+            'email': user.email,
+            'university_name': user.college or '',
+            'experience_level': user.experience_level or '',
+            'skills': user.skills or '',
+        }
     
     if request.method == 'POST':
         action = request.form.get('action')
@@ -80,6 +90,90 @@ def register_hackathon(hackathon_id):
                 flash('Team name is required.', 'error')
                 return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
 
+            # Team roster inputs (leader is always included; additional members are optional)
+            members_full_name = request.form.getlist('members_full_name[]')
+            members_email = request.form.getlist('members_email[]')
+            members_university = request.form.getlist('members_university[]')
+            members_experience = request.form.getlist('members_experience[]')
+            members_skills = request.form.getlist('members_skills[]')
+
+            # Basic email validation
+            email_re = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+            def _norm(s: str) -> str:
+                return (s or '').strip()
+
+            # Leader profile (from DB) is the authoritative first roster entry.
+            leader_user = User.query.get(user_id)
+            if not leader_user:
+                flash('User session invalid. Please login again.', 'error')
+                return redirect(url_for('auth.login'))
+
+            roster = [
+                {
+                    'full_name': _norm(leader_user.full_name) or _norm(leader_user.username),
+                    'email': _norm(leader_user.email),
+                    'university_name': _norm(leader_user.college),
+                    'experience_level': _norm(leader_user.experience_level),
+                    'skills': _norm(leader_user.skills),
+                    'is_leader': True,
+                }
+            ]
+
+            # Additional members submitted from the form
+            if any([members_full_name, members_email, members_university, members_experience, members_skills]):
+                n = max(len(members_full_name), len(members_email), len(members_university), len(members_experience), len(members_skills))
+                for i in range(n):
+                    fn = _norm(members_full_name[i] if i < len(members_full_name) else '')
+                    em = _norm(members_email[i] if i < len(members_email) else '')
+                    un = _norm(members_university[i] if i < len(members_university) else '')
+                    ex = _norm(members_experience[i] if i < len(members_experience) else '')
+                    sk = _norm(members_skills[i] if i < len(members_skills) else '')
+
+                    # Skip completely empty rows (defensive)
+                    if not any([fn, em, un, ex, sk]):
+                        continue
+
+                    roster.append({
+                        'full_name': fn,
+                        'email': em,
+                        'university_name': un,
+                        'experience_level': ex,
+                        'skills': sk,
+                        'is_leader': False,
+                    })
+
+            # Validate roster constraints: min 1 (leader) max 5 total
+            if len(roster) < 1:
+                flash('Add at least 1 team member.', 'error')
+                return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+            if len(roster) > 5:
+                flash('Maximum 5 team members allowed (including the leader).', 'error')
+                return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+
+            allowed_experience = {'Beginner', 'Intern', 'Expert'}
+            seen_emails = set()
+            for m in roster:
+                if not m['full_name']:
+                    flash('Full Name is required for each member.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+                if not m['email'] or not email_re.match(m['email']):
+                    flash('A valid Email Address is required for each member.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+                if m['email'].lower() in seen_emails:
+                    flash('Each team member email must be unique.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+                seen_emails.add(m['email'].lower())
+                if not m['university_name']:
+                    flash('University Name is required for each member.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+                if m['experience_level'] not in allowed_experience:
+                    flash('Experience Level must be Beginner / Intern / Expert.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+                if not m['skills']:
+                    flash('Skills are required for each member.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+
             team = Team(name=team_name, hackathon_id=hackathon.id, leader_id=user_id)
             try:
                 db.session.add(team)
@@ -87,6 +181,21 @@ def register_hackathon(hackathon_id):
 
                 member = TeamMember(team_id=team.id, user_id=user_id)
                 db.session.add(member)
+                db.session.commit()
+
+                # Persist the submitted roster snapshot (leader + optional additional members)
+                # This does NOT create accounts for those emails; it stores the team registration roster.
+                for m in roster:
+                    db.session.add(TeamRosterMember(
+                        team_id=team.id,
+                        hackathon_id=hackathon.id,
+                        full_name=m['full_name'],
+                        email=m['email'],
+                        university_name=m['university_name'],
+                        experience_level=m['experience_level'],
+                        skills=m['skills'],
+                        is_leader=bool(m.get('is_leader')),
+                    ))
                 db.session.commit()
             except Exception:
                 db.session.rollback()
@@ -105,7 +214,12 @@ def register_hackathon(hackathon_id):
         flash('Invalid action.', 'error')
         return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
                 
-    return render_template('participant/hackathon_register.html', hackathon=hackathon, existing_skills=existing_skills)
+    return render_template(
+        'participant/hackathon_register.html',
+        hackathon=hackathon,
+        existing_skills=existing_skills,
+        leader_profile=leader_profile,
+    )
 
 @participant_bp.route('/team/<int:team_id>')
 @participant_required
