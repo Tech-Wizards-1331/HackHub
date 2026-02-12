@@ -105,6 +105,78 @@
     </div>
 </section>
 
+<!-- UPCOMING HACKATHONS: Dynamic cards (backend-driven) -->
+<section class="hh-section" data-aos="fade-up">
+    <div class="container-fluid px-3 px-md-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-10 col-xl-9">
+                <div class="text-center mb-5">
+                    <h2 class="hh-section-title">Upcoming Hackathons</h2>
+                    <p class="hh-section-subtitle">Register for events that are coming up next</p>
+                </div>
+
+                {% if not upcoming_hackathons %}
+                    <div class="hh-card p-4 text-center">
+                        <div class="hh-muted">No upcoming hackathons yet. Check back soon.</div>
+                    </div>
+                {% else %}
+                    <div class="row g-4">
+                        {% for h in upcoming_hackathons %}
+                            {% set is_registered = session.get('user_id') and (h.id in registered_hackathon_ids) %}
+                            {% set mode = 'Offline' if h.venue else 'Online' %}
+                            <div class="col-12 col-md-6 col-lg-4">
+                                <div class="hh-capability-card h-100 d-flex flex-column">
+                                    <div class="hh-capability-icon hh-capability-icon-blue">
+                                        <i class="bi bi-calendar2-event"></i>
+                                    </div>
+
+                                    <h4 class="hh-capability-title">{{ h.name }}</h4>
+
+                                    <div class="text-sm hh-muted mt-1">
+                                        {% if h.start_date %}
+                                            <div><i class="bi bi-calendar-event me-1"></i>{{ h.start_date.strftime('%b %d, %Y') }}</div>
+                                        {% endif %}
+                                        <div><i class="bi bi-broadcast me-1"></i>{{ mode }}</div>
+                                    </div>
+
+                                    {% if h.description %}
+                                        <p class="hh-capability-desc mt-3">{{ h.description | truncate(140, True, '…') }}</p>
+                                    {% else %}
+                                        <p class="hh-capability-desc mt-3">Join this upcoming event and build something great.</p>
+                                    {% endif %}
+
+                                    <div class="mt-auto pt-3">
+                                        {% if not session.get('user_id') %}
+                                            <a class="hh-btn hh-btn-primary w-100" href="{{ url_for('auth.login') }}">
+                                                Login to Register
+                                                <i class="bi bi-box-arrow-in-right ms-2"></i>
+                                            </a>
+                                        {% else %}
+                                            {% if is_registered %}
+                                                <div class="d-flex justify-content-center mb-2">
+                                                    <span class="hh-badge hh-badge--success"><i class="bi bi-check2-circle"></i> Already Registered</span>
+                                                </div>
+                                                <button type="button" class="hh-btn hh-btn-primary w-100" disabled>
+                                                    Register Now
+                                                </button>
+                                            {% else %}
+                                                <a class="hh-btn hh-btn-primary w-100" href="{{ url_for('participant.register_hackathon', hackathon_id=h.id) }}">
+                                                    Register Now
+                                                    <i class="bi bi-arrow-right ms-2"></i>
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- ROLE-BASED FEATURES: Premium glass cards -->
 <section class="hh-section" data-aos="fade-up">
     <div class="container-fluid px-3 px-md-4">

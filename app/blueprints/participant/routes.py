@@ -5,6 +5,7 @@ from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, Probl
 from datetime import datetime
 from flask import jsonify, current_app
 from app.utils.qr_manager import generate_team_qrs
+from sqlalchemy import func
 from functools import wraps
 import uuid
 import re
@@ -15,6 +16,35 @@ def _parse_registered_skills(skills):
     if not skills:
         return []
     return [s.strip() for s in skills.split(',') if s.strip()]
+
+def _find_date_conflict(user_id, hackathon):
+    if not hackathon or not hackathon.start_date:
+        return None
+
+    target_date = hackathon.start_date.date()
+    return (
+        TeamMember.query
+        .join(Team, TeamMember.team_id == Team.id)
+        .join(Hackathon, Team.hackathon_id == Hackathon.id)
+        .filter(
+            TeamMember.user_id == user_id,
+            func.date(Hackathon.start_date) == target_date
+        )
+        .first()
+    )
+
+def _auto_close_registration_if_due(hackathon):
+    if not hackathon or not hackathon.start_date:
+        return False
+
+    today = datetime.utcnow().date()
+    event_date = hackathon.start_date.date()
+    if event_date <= today:
+        if hackathon.status != HackathonStatus.REGISTRATION_CLOSED:
+            hackathon.status = HackathonStatus.REGISTRATION_CLOSED
+            db.session.commit()
+        return True
+    return False
 
 def participant_required(f):
     @wraps(f)
@@ -37,11 +67,27 @@ def dashboard():
         status='PENDING'
     ).order_by(TeamJoinRequest.created_at.desc()).all()
     
-    # If the participant is already registered in any hackathon (via team membership),
-    # don't show registration cards again.
-    open_hackathons = []
-    if not my_memberships:
-        open_hackathons = Hackathon.query.filter_by(status=HackathonStatus.REGISTRATION_OPEN).all()
+    # Allow multiple hackathon registrations (date conflicts handled on submit).
+    registered_hackathon_ids = (
+        db.session.query(Team.hackathon_id)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .filter(TeamMember.user_id == user_id)
+        .subquery()
+    )
+    open_hackathons = (
+        Hackathon.query
+        .filter_by(status=HackathonStatus.REGISTRATION_OPEN)
+        .filter(~Hackathon.id.in_(registered_hackathon_ids))
+        .all()
+    )
+
+    # Auto-close any open hackathons that are due (today or past).
+    filtered_open = []
+    for h in open_hackathons:
+        if _auto_close_registration_if_due(h):
+            continue
+        filtered_open.append(h)
+    open_hackathons = filtered_open
     
     return render_template('participant/dashboard.html', 
                            my_memberships=my_memberships, 
@@ -52,6 +98,10 @@ def dashboard():
 @participant_required
 def register_hackathon(hackathon_id):
     hackathon = Hackathon.query.get_or_404(hackathon_id)
+
+    if _auto_close_registration_if_due(hackathon):
+        flash('Registration is closed for this hackathon.', 'error')
+        return redirect(url_for('participant.dashboard'))
 
     # Provide existing registered skills to the template so team-joining doesn't
     # force the user to re-enter them.
@@ -72,16 +122,20 @@ def register_hackathon(hackathon_id):
         action = request.form.get('action')
         user_id = session['user_id']
 
-        # A participant can only be registered in ONE hackathon at a time.
-        # If they're already in any team, block registering again.
-        existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == user_id).first()
-        if existing_membership:
-            existing_team = existing_membership.team
-            if existing_team and existing_team.hackathon_id == hackathon_id:
-                flash("You are already registered for this hackathon.", 'warning')
-            else:
-                existing_name = existing_team.hackathon.name if existing_team and existing_team.hackathon else 'another hackathon'
-                flash(f"You are already registered for {existing_name}. You can't register for a second hackathon.", 'error')
+        # Allow multiple hackathons, but block same-date conflicts.
+        existing_same_hackathon = (
+            TeamMember.query
+            .join(Team)
+            .filter(TeamMember.user_id == user_id, Team.hackathon_id == hackathon_id)
+            .first()
+        )
+        if existing_same_hackathon:
+            flash("You are already registered for this hackathon.", 'warning')
+            return redirect(url_for('participant.dashboard'))
+
+        conflict = _find_date_conflict(user_id, hackathon)
+        if conflict and conflict.team and conflict.team.hackathon_id != hackathon_id:
+            flash('You are already registered for another hackathon on this date.', 'error')
             return redirect(url_for('participant.dashboard'))
         
         if action == 'create_team':
@@ -319,6 +373,9 @@ def accept_team_request(request_id):
         return redirect(url_for('participant.dashboard'))
 
     hackathon = team.hackathon
+    if _auto_close_registration_if_due(hackathon):
+        flash('Registration is closed for this hackathon.', 'error')
+        return redirect(url_for('participant.dashboard'))
     if hackathon.status != HackathonStatus.REGISTRATION_OPEN:
         flash('Registration is not open for this hackathon.', 'error')
         return redirect(url_for('participant.dashboard'))
@@ -333,7 +390,6 @@ def accept_team_request(request_id):
         return redirect(url_for('participant.dashboard'))
 
     # The participant accepting this request is `join_request.user_id` (matches session user).
-    # Policy: a participant can only be registered in ONE hackathon/team at a time.
     existing_membership = TeamMember.query.filter(TeamMember.user_id == join_request.user_id).first()
     if existing_membership:
         if existing_membership.team_id == team.id:
@@ -346,6 +402,12 @@ def accept_team_request(request_id):
             except Exception:
                 db.session.rollback()
                 flash('Failed to update request status. Please try again.', 'error')
+            return redirect(url_for('participant.dashboard'))
+
+        # Allow multiple hackathons, but block same-date conflicts.
+        conflict = _find_date_conflict(join_request.user_id, hackathon)
+        if conflict and conflict.team and conflict.team.hackathon_id != hackathon.id:
+            flash('You are already registered for another hackathon on this date.', 'error')
             return redirect(url_for('participant.dashboard'))
 
         flash('You are already registered in a team.', 'error')
@@ -420,18 +482,33 @@ def find_members(hackathon_id, team_id):
 @participant_required
 def solo_register(hackathon_id):
     hackathon = Hackathon.query.get_or_404(hackathon_id)
+
+    if _auto_close_registration_if_due(hackathon):
+        if request.is_json or request.accept_mimetypes.best == 'application/json':
+            return {'error': 'Registration is closed for this hackathon.'}, 400
+        flash('Registration is closed for this hackathon.', 'error')
+        return redirect(url_for('participant.dashboard'))
     user_id = session['user_id']
     user = User.query.get_or_404(user_id)
     
-    # A participant can only be registered in ONE hackathon at a time.
-    existing_membership = TeamMember.query.join(Team).filter(TeamMember.user_id == user_id).first()
-    if existing_membership:
-        existing_team = existing_membership.team
+    # Allow multiple hackathons, but block same-date conflicts.
+    existing_same_hackathon = (
+        TeamMember.query
+        .join(Team)
+        .filter(TeamMember.user_id == user_id, Team.hackathon_id == hackathon_id)
+        .first()
+    )
+    if existing_same_hackathon:
         if request.is_json or request.accept_mimetypes.best == 'application/json':
-            return {'error': "Already registered in a hackathon"}, 400
+            return {'error': "Already registered for this hackathon"}, 400
+        flash("You are already registered for this hackathon.", 'warning')
+        return redirect(url_for('participant.dashboard'))
 
-        existing_name = existing_team.hackathon.name if existing_team and existing_team.hackathon else 'another hackathon'
-        flash(f"You are already registered for {existing_name}.", 'error')
+    conflict = _find_date_conflict(user_id, hackathon)
+    if conflict and conflict.team and conflict.team.hackathon_id != hackathon_id:
+        if request.is_json or request.accept_mimetypes.best == 'application/json':
+            return {'error': "You are already registered for another hackathon on this date."}, 400
+        flash('You are already registered for another hackathon on this date.', 'error')
         return redirect(url_for('participant.dashboard'))
     
     # Reuse skills captured at account registration.
