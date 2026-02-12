@@ -548,6 +548,20 @@ def seed_demo() -> None:
             enable_dinner=True,
         )
 
+        hack_upcoming = _get_or_create_hackathon(
+            name="Demo Hackathon (Upcoming)",
+            status=HackathonStatus.DRAFT,
+            description=(
+                "Upcoming hackathon (details published, registrations not open yet). "
+                "Rules: teams of 1–4; submit before deadline; OSS libraries allowed."
+            ),
+            start_date=now + timedelta(days=14),
+            end_date=now + timedelta(days=15),
+            enable_breakfast=True,
+            enable_lunch=True,
+            enable_dinner=True,
+        )
+
         hack_select = _get_or_create_hackathon(
             name="Demo Hackathon (Problem Selection)",
             status=HackathonStatus.PROBLEM_SELECTION,
@@ -559,6 +573,17 @@ def seed_demo() -> None:
             enable_dinner=False,
         )
 
+        hack_ongoing = _get_or_create_hackathon(
+            name="Demo Hackathon (Ongoing)",
+            status=HackathonStatus.ONGOING,
+            description="Hackathon is currently in progress; coding is happening and teams can submit updates.",
+            start_date=now - timedelta(hours=3),
+            end_date=now + timedelta(hours=21),
+            enable_breakfast=False,
+            enable_lunch=True,
+            enable_dinner=True,
+        )
+
         hack_eval = _get_or_create_hackathon(
             name="Demo Hackathon (Evaluation)",
             status=HackathonStatus.EVALUATION,
@@ -568,6 +593,17 @@ def seed_demo() -> None:
             enable_breakfast=False,
             enable_lunch=True,
             enable_dinner=True,
+        )
+
+        hack_await_eval = _get_or_create_hackathon(
+            name="Demo Hackathon (Awaiting Evaluation)",
+            status=HackathonStatus.EVALUATION,
+            description="Coding has ended and submissions are in; faculty evaluations are pending.",
+            start_date=now - timedelta(days=2),
+            end_date=now - timedelta(days=1),
+            enable_breakfast=False,
+            enable_lunch=True,
+            enable_dinner=False,
         )
 
         hack_results = _get_or_create_hackathon(
@@ -582,13 +618,18 @@ def seed_demo() -> None:
         )
 
         # --- Problem statements ---
+        probs_upcoming = _ensure_problem_statements(hack_upcoming, app.root_path, count=6)
         probs_select = _ensure_problem_statements(hack_select, app.root_path, count=6)
+        probs_ongoing = _ensure_problem_statements(hack_ongoing, app.root_path, count=5)
         probs_eval = _ensure_problem_statements(hack_eval, app.root_path, count=4)
-        probs_results = _ensure_problem_statements(hack_results, app.root_path, count=3)
+        probs_await_eval = _ensure_problem_statements(hack_await_eval, app.root_path, count=4)
+        probs_results = _ensure_problem_statements(hack_results, app.root_path, count=5)
 
         # --- Rubrics ---
         _ensure_rubric(hack_select)
+        _ensure_rubric(hack_ongoing)
         _ensure_rubric(hack_eval)
+        _ensure_rubric(hack_await_eval)
         _ensure_rubric(hack_results)
 
         # --- Teams + members ---
@@ -599,6 +640,18 @@ def seed_demo() -> None:
         _ensure_team_member(team_open_2, participants[3])
         _set_team_created_at(team_open_1.id, now - timedelta(days=2))
         _set_team_created_at(team_open_2.id, now - timedelta(days=1))
+
+        # Ongoing hack: teams are mid-build (no evaluations here)
+        team_on_1 = _get_or_create_team(hackathon=hack_ongoing, name="Team Pulse", leader=participants[7])
+        team_on_2 = _get_or_create_team(hackathon=hack_ongoing, name="Team Forge", leader=participants[8])
+        _ensure_team_member(team_on_1, participants[9])
+        _ensure_team_member(team_on_1, participants[10])
+        _ensure_team_member(team_on_2, participants[11])
+        if team_on_1.problem_statement_id is None:
+            team_on_1.problem_statement_id = probs_ongoing[0].id
+        if team_on_2.problem_statement_id is None:
+            team_on_2.problem_statement_id = probs_ongoing[1].id
+        db.session.commit()
 
         # Problem-selection hack: teams with some problems already picked
         team_sel_1 = _get_or_create_team(hackathon=hack_select, name="Team Prism", leader=participants[4])
@@ -630,12 +683,42 @@ def seed_demo() -> None:
         _set_team_created_at(team_eval_1.id, now - timedelta(days=1))
         _set_team_created_at(team_eval_2.id, now - timedelta(days=0))
 
-        # Results-published hack
+        # Awaiting-evaluation hack: submissions are in, but do NOT seed evaluations
+        team_ae_1 = _get_or_create_team(hackathon=hack_await_eval, name="Team Comet", leader=participants[2])
+        team_ae_2 = _get_or_create_team(hackathon=hack_await_eval, name="Team Horizon", leader=participants[3])
+        team_ae_3 = _get_or_create_team(hackathon=hack_await_eval, name="Team Vertex", leader=participants[4])
+        _ensure_team_member(team_ae_1, participants[5])
+        _ensure_team_member(team_ae_2, participants[6])
+        _ensure_team_member(team_ae_3, participants[14])
+        if team_ae_1.problem_statement_id is None:
+            team_ae_1.problem_statement_id = probs_await_eval[0].id
+        if team_ae_2.problem_statement_id is None:
+            team_ae_2.problem_statement_id = probs_await_eval[1].id
+        if team_ae_3.problem_statement_id is None:
+            team_ae_3.problem_statement_id = probs_await_eval[2].id
+        db.session.commit()
+
+        # Results-published hack: 3-5 teams with evaluations done (winners are derived by scores in UI)
         team_res_1 = _get_or_create_team(hackathon=hack_results, name="Team Zenith", leader=participants[14])
+        team_res_2 = _get_or_create_team(hackathon=hack_results, name="Team Spectrum", leader=participants[0])
+        team_res_3 = _get_or_create_team(hackathon=hack_results, name="Team Helix", leader=participants[1])
+        team_res_4 = _get_or_create_team(hackathon=hack_results, name="Team Orbit", leader=participants[2])
         if team_res_1.problem_statement_id is None:
             team_res_1.problem_statement_id = probs_results[0].id
+        if team_res_2.problem_statement_id is None:
+            team_res_2.problem_statement_id = probs_results[1].id
+        if team_res_3.problem_statement_id is None:
+            team_res_3.problem_statement_id = probs_results[2].id
+        if team_res_4.problem_statement_id is None:
+            team_res_4.problem_statement_id = probs_results[3].id
+        _ensure_team_member(team_res_2, participants[3])
+        _ensure_team_member(team_res_3, participants[4])
+        _ensure_team_member(team_res_4, participants[5])
         db.session.commit()
         _set_team_created_at(team_res_1.id, now - timedelta(days=6))
+        _set_team_created_at(team_res_2.id, now - timedelta(days=6, hours=2))
+        _set_team_created_at(team_res_3.id, now - timedelta(days=6, hours=4))
+        _set_team_created_at(team_res_4.id, now - timedelta(days=6, hours=6))
 
         # Ensure solo participants exist for registration-open hack (public + not in any team there)
         # Make a few extra participants public explicitly.
@@ -646,13 +729,18 @@ def seed_demo() -> None:
         db.session.commit()
 
         # --- Faculty assignments ---
-        for hack in (hack_select, hack_eval, hack_results):
+        for hack in (hack_select, hack_ongoing, hack_eval, hack_await_eval, hack_results):
             _ensure_faculty_assignment(hack, faculty1)
             _ensure_faculty_assignment(hack, faculty2)
 
         # --- Evaluations ---
         _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2], live_activity=True)
-        _ensure_evaluations(hack_results, [faculty1, faculty2], [team_res_1], live_activity=False)
+        _ensure_evaluations(
+            hack_results,
+            [faculty1, faculty2],
+            [team_res_1, team_res_2, team_res_3, team_res_4],
+            live_activity=False,
+        )
 
         # --- Attendance + meal usage ---
         _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=8)

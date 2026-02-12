@@ -111,6 +111,11 @@ def evaluate_teams_list(hackathon_id):
         
     hackathon = Hackathon.query.get_or_404(hackathon_id)
     
+    # Backend validation: Only allow evaluation when hackathon status is EVALUATION
+    if hackathon.status != HackathonStatus.EVALUATION:
+        flash("Evaluation is not enabled for this hackathon yet.", "error")
+        return redirect(url_for('faculty.dashboard'))
+    
     # Get set of team IDs already evaluated by this faculty
     evaluated_teams = db.session.query(Evaluation.team_id).filter_by(
         hackathon_id=hackathon_id, 
@@ -133,6 +138,11 @@ def evaluate_team(team_id):
     assignment = FacultyAssignment.query.filter_by(hackathon_id=team.hackathon_id, faculty_id=session['user_id']).first()
     if not assignment:
         flash("You are not assigned to evaluate this hackathon.", "error")
+        return redirect(url_for('faculty.dashboard'))
+    
+    # Backend validation: Only allow evaluation when hackathon status is EVALUATION
+    if team.hackathon.status != HackathonStatus.EVALUATION:
+        flash("Evaluation is not enabled for this hackathon yet.", "error")
         return redirect(url_for('faculty.dashboard'))
 
     if team.hackathon.status == HackathonStatus.RESULT_PUBLISHED:

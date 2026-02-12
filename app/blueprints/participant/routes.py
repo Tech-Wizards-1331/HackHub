@@ -1,7 +1,7 @@
 from flask import render_template, request, session, redirect, url_for, flash
 from . import participant_bp
 from app.extensions import db
-from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, ProblemStatement, TeamQR, TeamJoinRequest, TeamRosterMember
+from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, ProblemStatement, TeamQR, TeamJoinRequest, TeamRosterMember, UserRole, TeamVisibility
 from datetime import datetime
 from flask import jsonify, current_app
 from app.utils.qr_manager import generate_team_qrs
@@ -72,7 +72,6 @@ def dashboard():
         db.session.query(Team.hackathon_id)
         .join(TeamMember, TeamMember.team_id == Team.id)
         .filter(TeamMember.user_id == user_id)
-        .subquery()
     )
     open_hackathons = (
         Hackathon.query
@@ -163,12 +162,17 @@ def register_hackathon(hackathon_id):
                 flash('User session invalid. Please login again.', 'error')
                 return redirect(url_for('auth.login'))
 
+            # Normalize experience level (some older accounts may have different casing)
+            exp_map = {'beginner': 'Beginner', 'intern': 'Intern', 'expert': 'Expert'}
+            leader_exp_raw = _norm(leader_user.experience_level)
+            leader_exp = exp_map.get(leader_exp_raw.lower(), leader_exp_raw)
+
             roster = [
                 {
                     'full_name': _norm(leader_user.full_name) or _norm(leader_user.username),
                     'email': _norm(leader_user.email),
                     'university_name': _norm(leader_user.college),
-                    'experience_level': _norm(leader_user.experience_level),
+                    'experience_level': leader_exp,
                     'skills': _norm(leader_user.skills),
                     'is_leader': True,
                 }
@@ -192,17 +196,18 @@ def register_hackathon(hackathon_id):
                         'full_name': fn,
                         'email': em,
                         'university_name': un,
-                        'experience_level': ex,
+                        'experience_level': exp_map.get(ex.lower(), ex),
                         'skills': sk,
                         'is_leader': False,
                     })
 
-            # Validate roster constraints: min 1 (leader) max 5 total
+            # Validate roster constraints: min 1 (leader) max hackathon limit
             if len(roster) < 1:
                 flash('Add at least 1 team member.', 'error')
                 return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
-            if len(roster) > 5:
-                flash('Maximum 5 team members allowed (including the leader).', 'error')
+            max_allowed = hackathon.max_team_size or 5
+            if len(roster) > max_allowed:
+                flash(f'Maximum {max_allowed} team members allowed (including the leader).', 'error')
                 return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
 
             allowed_experience = {'Beginner', 'Intern', 'Expert'}
@@ -221,24 +226,72 @@ def register_hackathon(hackathon_id):
                 if not m['university_name']:
                     flash('University Name is required for each member.', 'error')
                     return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
-                if m['experience_level'] not in allowed_experience:
+                if not m.get('is_leader') and m['experience_level'] not in allowed_experience:
                     flash('Experience Level must be Beginner / Intern / Expert.', 'error')
                     return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
                 if not m['skills']:
                     flash('Skills are required for each member.', 'error')
                     return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
 
+            # Resolve roster emails to existing users (if any) BEFORE writing anything.
+            # We still store the roster snapshot for all entries.
+            resolved_users_by_email = {}
+            for m in roster:
+                existing_user = (
+                    User.query
+                    .filter(func.lower(User.email) == m['email'].lower())
+                    .first()
+                )
+                if existing_user:
+                    resolved_users_by_email[m['email'].lower()] = existing_user
+
+            # Validate resolved users: must be participants and must not conflict with this hackathon/date.
+            for email_lower, existing_user in resolved_users_by_email.items():
+                if existing_user.role != UserRole.PARTICIPANT:
+                    flash(f'User with email {email_lower} is not a participant.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+
+                existing_same_hackathon_member = (
+                    TeamMember.query
+                    .join(Team)
+                    .filter(TeamMember.user_id == existing_user.id, Team.hackathon_id == hackathon_id)
+                    .first()
+                )
+                if existing_same_hackathon_member:
+                    flash(f'{email_lower} is already registered for this hackathon.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+
+                conflict = _find_date_conflict(existing_user.id, hackathon)
+                if conflict and conflict.team and conflict.team.hackathon_id != hackathon_id:
+                    flash(f'{email_lower} is already registered for another hackathon on this date.', 'error')
+                    return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
+
             team = Team(name=team_name, hackathon_id=hackathon.id, leader_id=user_id)
             try:
                 db.session.add(team)
-                db.session.commit()
+                db.session.flush()  # Get team.id without committing transaction
 
-                member = TeamMember(team_id=team.id, user_id=user_id)
-                db.session.add(member)
-                db.session.commit()
+                # Create TeamMember records (real memberships) for existing users.
+                # Always include leader explicitly.
+                added_user_ids = set()
+                db.session.add(TeamMember(team_id=team.id, user_id=user_id))
+                added_user_ids.add(user_id)
 
+                for m in roster:
+                    existing_user = resolved_users_by_email.get(m['email'].lower())
+                    if not existing_user:
+                        continue
+                    if existing_user.id in added_user_ids:
+                        continue
+
+                    db.session.add(TeamMember(team_id=team.id, user_id=existing_user.id))
+                    added_user_ids.add(existing_user.id)
+
+                    if getattr(existing_user, 'is_public', None):
+                        existing_user.is_public = False
+                
                 # Persist the submitted roster snapshot (leader + optional additional members)
-                # This does NOT create accounts for those emails; it stores the team registration roster.
+                # This stores registration metadata for record-keeping
                 for m in roster:
                     db.session.add(TeamRosterMember(
                         team_id=team.id,
@@ -250,9 +303,12 @@ def register_hackathon(hackathon_id):
                         skills=m['skills'],
                         is_leader=bool(m.get('is_leader')),
                     ))
+                
+                # Commit all changes in single transaction (atomic)
                 db.session.commit()
-            except Exception:
+            except Exception as e:
                 db.session.rollback()
+                print(f"Team registration error: {e}")
                 flash('Registration failed. Please try again.', 'error')
                 return redirect(url_for('participant.register_hackathon', hackathon_id=hackathon_id))
 
@@ -284,6 +340,32 @@ def view_team(team_id):
     if not is_member:
         flash("Access Denied", 'error')
         return redirect(url_for('participant.dashboard'))
+
+    # Load roster snapshot (leader + added members from registration)
+    roster_rows = (
+        TeamRosterMember.query
+        .filter_by(team_id=team.id, hackathon_id=team.hackathon_id)
+        .order_by(TeamRosterMember.is_leader.desc(), TeamRosterMember.full_name.asc())
+        .all()
+    )
+
+    members_by_email = {}
+    for tm in team.members:
+        if tm.user and tm.user.email:
+            members_by_email[tm.user.email.lower()] = tm
+
+    roster_view = []
+    for r in roster_rows:
+        linked = members_by_email.get((r.email or '').lower())
+        roster_view.append({
+            'full_name': r.full_name,
+            'email': r.email,
+            'is_leader': bool(r.is_leader),
+            'linked_team_member_id': linked.id if linked else None,
+            'linked_user_id': linked.user_id if linked else None,
+            'linked_username': (linked.user.username if linked and linked.user else None),
+            'linked_display_name': (linked.user.full_name if linked and linked.user else None),
+        })
     
     # Filter available problems: Only those not at capacity
     available_problems = []
@@ -291,7 +373,7 @@ def view_team(team_id):
         all_problems = ProblemStatement.query.filter_by(hackathon_id=team.hackathon_id).all()
         available_problems = [p for p in all_problems if len(p.teams) < p.max_team_limit]
         
-    return render_template('participant/team_view.html', team=team, available_problems=available_problems)
+    return render_template('participant/team_view.html', team=team, available_problems=available_problems, roster_view=roster_view)
 
 @participant_bp.route('/team/problem', methods=['GET'])
 @participant_required
@@ -421,6 +503,12 @@ def accept_team_request(request_id):
         if participant:
             participant.is_public = False
 
+        TeamVisibility.query.filter_by(
+            hackathon_id=hackathon.id,
+            user_id=join_request.user_id,
+            is_active=True,
+        ).update({'is_active': False})
+
         join_request.status = 'ACCEPTED'
         join_request.responded_at = datetime.utcnow()
 
@@ -510,16 +598,33 @@ def solo_register(hackathon_id):
             return {'error': "You are already registered for another hackathon on this date."}, 400
         flash('You are already registered for another hackathon on this date.', 'error')
         return redirect(url_for('participant.dashboard'))
+
+    existing_visibility = TeamVisibility.query.filter_by(
+        hackathon_id=hackathon_id,
+        user_id=user_id,
+    ).first()
+    if existing_visibility and existing_visibility.is_active:
+        message = 'You are now visible to the team leaders. Please wait for their invitation.'
+        if request.is_json or request.accept_mimetypes.best == 'application/json':
+            return {'message': message}, 200
+        flash(message, 'info')
+        return redirect(url_for('participant.dashboard'))
     
     # Reuse skills captured at account registration.
     # Don't overwrite `user.skills` during team joining/visibility unless it was empty.
     submitted_skills = (request.form.get('skills') or '').strip()
     if (not (user.skills or '').strip()) and submitted_skills:
         user.skills = submitted_skills
+
+    # Mark user visible and create/activate visibility entry for this hackathon.
     user.is_public = True
-    
+    if existing_visibility:
+        existing_visibility.is_active = True
+    else:
+        db.session.add(TeamVisibility(hackathon_id=hackathon_id, user_id=user_id, is_active=True))
+
     db.session.commit()
-    
+
     flash('Profile updated. You are now visible to team leaders.', 'success')
     return redirect(url_for('participant.dashboard'))
 

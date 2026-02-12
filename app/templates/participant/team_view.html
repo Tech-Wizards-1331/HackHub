@@ -34,7 +34,7 @@
                         <div class="text-sm hh-muted">Roster</div>
                         <div class="text-lg font-semibold"><i class="bi bi-people-fill me-2"></i>Members</div>
                     </div>
-                    <span class="hh-pill"><i class="bi bi-hash"></i> {{ team.members|length }}</span>
+                    <span class="hh-pill"><i class="bi bi-hash"></i> {{ (roster_view|length) if roster_view is defined else (team.members|length) }}</span>
                 </div>
             </div>
             <div class="p-3 sm:p-4 overflow-x-auto">
@@ -47,22 +47,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for member in team.members %}
+                        {% if roster_view is defined and roster_view|length %}
+                            {% for r in roster_view %}
                         <tr>
                             <td>
-                                <div class="font-medium">{{ member.user.username }}</div>
-                                <div class="hh-muted text-sm">{{ member.user.full_name }}</div>
+                                <div class="font-medium">{{ r.linked_username or r.full_name }}</div>
+                                <div class="hh-muted text-sm">{{ r.linked_display_name or r.email }}</div>
                             </td>
                             <td>
-                                {% if member.user_id == team.leader_id %}
+                                {% if r.is_leader %}
                                     <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader</span>
                                 {% else %}
                                     <span class="hh-badge hh-badge--neutral"><i class="bi bi-person"></i> Member</span>
                                 {% endif %}
                             </td>
                             <td class="text-right">
-                                {% if team.leader_id == session.get('user_id') and member.user_id != session.get('user_id') %}
-                                    <form method="POST" action="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="inline"
+                                {% if team.leader_id == session.get('user_id') and r.linked_team_member_id and r.linked_user_id != session.get('user_id') %}
+                                    <form method="POST" action="{{ url_for('participant.remove_member', team_id=team.id, member_id=r.linked_team_member_id) }}" class="inline"
                                           onsubmit="return confirm('Remove this member from the team?')">
                                         <button type="submit" class="hh-btn hh-btn-danger">
                                             <i class="bi bi-person-dash"></i> Remove
@@ -73,7 +74,36 @@
                                 {% endif %}
                             </td>
                         </tr>
-                        {% endfor %}
+                            {% endfor %}
+                        {% else %}
+                            {% for member in team.members %}
+                            <tr>
+                                <td>
+                                    <div class="font-medium">{{ member.user.username }}</div>
+                                    <div class="hh-muted text-sm">{{ member.user.full_name }}</div>
+                                </td>
+                                <td>
+                                    {% if member.user_id == team.leader_id %}
+                                        <span class="hh-badge hh-badge--success"><i class="bi bi-star-fill"></i> Leader</span>
+                                    {% else %}
+                                        <span class="hh-badge hh-badge--neutral"><i class="bi bi-person"></i> Member</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-right">
+                                    {% if team.leader_id == session.get('user_id') and member.user_id != session.get('user_id') %}
+                                        <form method="POST" action="{{ url_for('participant.remove_member', team_id=team.id, member_id=member.id) }}" class="inline"
+                                              onsubmit="return confirm('Remove this member from the team?')">
+                                            <button type="submit" class="hh-btn hh-btn-danger">
+                                                <i class="bi bi-person-dash"></i> Remove
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="hh-muted text-sm">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
