@@ -197,6 +197,33 @@ class TeamMealUsage(db.Model):
     )
 
 
+class TeamRosterMember(db.Model):
+    __tablename__ = 'team_roster_members'
+    id = db.Column(db.Integer, primary_key=True)
+
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
+
+    full_name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    university_name = db.Column(db.String(150), nullable=False)
+    experience_level = db.Column(db.String(20), nullable=False)  # Beginner / Intern / Expert
+    skills = db.Column(db.Text, nullable=False)  # Comma-separated
+
+    is_leader = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    team = db.relationship('Team', backref='roster_members')
+    hackathon = db.relationship('Hackathon', backref='team_rosters')
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'email', name='uq_team_roster_email'),
+        db.Index('ix_team_roster_hackathon_id', 'hackathon_id'),
+        db.Index('ix_team_roster_team_id', 'team_id'),
+        db.Index('ix_team_roster_email', 'email'),
+    )
+
+
 class QRFoodTicketStatus(enum.Enum):
     """Status of a food ticket QR code"""
     ACTIVE = 'ACTIVE'          # Valid and ready to scan

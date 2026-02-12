@@ -36,8 +36,40 @@ def create_app(config_class=Config):
 
     @app.route('/')
     def index():
-        from flask import render_template
-        return render_template('public/index.html')
+        from flask import render_template, session
+        from sqlalchemy import func
+        from app.models import Hackathon, Team, TeamMember
+
+        today = datetime.utcnow().date()
+        upcoming_hackathons = (
+            Hackathon.query
+            .filter(Hackathon.start_date.isnot(None))
+            .filter(func.date(Hackathon.start_date) > today)
+            .order_by(Hackathon.start_date.asc())
+            .all()
+        )
+
+        registered_hackathon_ids = set()
+        user_id = session.get('user_id')
+        if user_id and upcoming_hackathons:
+            upcoming_ids = [h.id for h in upcoming_hackathons]
+            rows = (
+                db.session.query(Team.hackathon_id)
+                .join(TeamMember, TeamMember.team_id == Team.id)
+                .filter(
+                    TeamMember.user_id == user_id,
+                    Team.hackathon_id.in_(upcoming_ids),
+                )
+                .distinct()
+                .all()
+            )
+            registered_hackathon_ids = {hid for (hid,) in rows}
+
+        return render_template(
+            'public/index.html',
+            upcoming_hackathons=upcoming_hackathons,
+            registered_hackathon_ids=registered_hackathon_ids,
+        )
         
     with app.app_context():
         # Lightweight SQLite schema migration for existing local DBs.
