@@ -126,6 +126,18 @@ class TeamJoinRequest(db.Model):
     user = db.relationship('User', foreign_keys=[user_id], backref='team_join_requests')
     requested_by = db.relationship('User', foreign_keys=[requested_by_id])
 
+class TeamVisibility(db.Model):
+    __tablename__ = 'team_visibility'
+    id = db.Column(db.Integer, primary_key=True)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('hackathon_id', 'user_id', name='uq_hackathon_user_visibility'),
+    )
+
 class Evaluation(db.Model):
     __tablename__ = 'evaluations'
     id = db.Column(db.Integer, primary_key=True)
