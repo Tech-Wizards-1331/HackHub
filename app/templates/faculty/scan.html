@@ -8,14 +8,12 @@
                 <span class="hh-badge hh-badge--info"><i class="bi bi-qr-code-scan"></i> Scanner</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-semibold">QR Scanner</h1>
-            <p class="hh-muted mt-1">Scan team QR codes for access and meal verification.</p>
+            <p class="hh-muted mt-1">Scan team QRs for access and transaction-safe meal allocation.</p>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Scanner Panel -->
         <div class="lg:col-span-2 hh-card p-4">
-            <!-- Camera Mode -->
             <div id="cameraMode" style="display: none;">
                 <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
                     <div class="text-sm hh-muted">Mobile Camera</div>
@@ -23,29 +21,10 @@
                 </div>
 
                 <div style="position: relative; width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
-                    <video 
-                        id="cameraVideo" 
-                        style="width: 100%; display: block; border-radius: 8px;"
-                        playsinline
-                        muted
-                    ></video>
-                    <canvas 
-                        id="cameraCanvas" 
-                        style="display: none;"
-                    ></canvas>
+                    <video id="cameraVideo" style="width: 100%; display: block; border-radius: 8px;" playsinline muted></video>
+                    <canvas id="cameraCanvas" style="display: none;"></canvas>
                     <div id="cameraStatus" style="position: absolute; bottom: 12px; left: 12px; right: 12px; padding: 8px 12px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; border-radius: 4px; text-align: center;">
-                        Pointing at QR code…
-                    </div>
-                </div>
-
-                <div class="p-3 rounded-xl mb-4" style="border: 1px solid rgba(59,130,246,0.35); background: rgba(59,130,246,0.10);">
-                    <div class="text-sm hh-muted">
-                        <strong>Tip:</strong> For best results:
-                        <ul style="margin: 8px 0 0 20px;">
-                            <li>Good lighting recommended</li>
-                            <li>Keep QR code centered in frame</li>
-                            <li>Avoid glare on QR code</li>
-                        </ul>
+                        Point camera at QR code...
                     </div>
                 </div>
 
@@ -59,7 +38,6 @@
                 </div>
             </div>
 
-            <!-- Input Mode -->
             <div id="inputMode">
                 <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
                     <div class="text-sm hh-muted">Input</div>
@@ -69,18 +47,18 @@
                 <form id="scanForm" class="grid gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Scan area</label>
-                        <input 
-                            type="text" 
-                            id="qrInput" 
-                            name="qr_token" 
-                            class="form-control" 
-                            autofocus 
-                            required 
-                            placeholder="Scanner will fill automatically…"
+                        <input
+                            type="text"
+                            id="qrInput"
+                            name="qr_token"
+                            class="form-control"
+                            autofocus
+                            required
+                            placeholder="Scanner will fill automatically..."
                             style="font-size: 16px; padding: 12px; border: 2px solid var(--hh-border); border-radius: 8px; background: rgba(255,255,255,0.05);"
                         >
                         <div class="text-sm hh-muted mt-2">
-                            Use USB scanner OR click "Camera" to use mobile phone camera.
+                            Use USB scanner or camera mode.
                         </div>
                     </div>
 
@@ -97,14 +75,12 @@
                     </div>
                 </form>
 
-                <!-- Last Scan Result -->
                 <div id="resultContainer" style="display: none; margin-top: 20px; padding: 16px; border-radius: 8px; border: 2px solid var(--hh-border);">
                     <div id="resultContent"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Guide Panel -->
         <div class="hh-card p-4">
             <div class="p-4 border-b mb-4" style="border-color: var(--hh-border);">
                 <div class="text-sm hh-muted">Guide</div>
@@ -114,48 +90,59 @@
             <div class="grid gap-3">
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
                     <div class="text-sm font-medium mb-1"><i class="bi bi-option"></i> Option A: USB Scanner</div>
-                    <div class="text-sm hh-muted">Keep input focused. Scan directly with USB barcode scanner.</div>
+                    <div class="text-sm hh-muted">Keep the input focused and scan directly.</div>
                 </div>
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium mb-1"><i class="bi bi-option"></i> Option B: Mobile Camera</div>
-                    <div class="text-sm hh-muted">Click "Camera" button. Allow camera access. Point phone at QR code.</div>
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-option"></i> Option B: Camera</div>
+                    <div class="text-sm hh-muted">Use mobile/desktop camera for live scanning.</div>
                 </div>
                 <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium mb-1"><i class="bi bi-check2"></i> Auto-detect</div>
-                    <div class="text-sm hh-muted">Camera detects QR automatically and fills input. Click Submit.</div>
+                    <div class="text-sm font-medium mb-1"><i class="bi bi-list-check"></i> Meal flow</div>
+                    <div class="text-sm hh-muted">For meal QRs, choose members to allocate (backend enforces remaining limit).</div>
                 </div>
-                <div class="p-3 rounded-xl" style="border: 1px solid var(--hh-border); background: rgba(255,255,255,0.04);">
-                    <div class="text-sm font-medium mb-1"><i class="bi bi-repeat"></i> Next scan</div>
-                    <div class="text-sm hh-muted">Switch mode or clear field and scan again.</div>
-                </div>
-            </div>
-
-            <div class="mt-4 p-3 rounded-xl" style="border: 1px solid rgba(59,130,246,0.35); background: rgba(59,130,246,0.10);">
-                <div class="text-sm hh-muted"><i class="bi bi-info-circle"></i> Results show team name, hackathon, and meal count.</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- jsQR library for QR detection -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<div class="modal fade" id="mealAllocationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Team Meal Allocation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="small text-muted mb-2" id="mealModalTeamInfo"></div>
+                <div class="p-3 rounded border mb-3">
+                    <div><strong>Total members:</strong> <span id="mealModalTotal">0</span></div>
+                    <div><strong>Already taken:</strong> <span id="mealModalTaken">0</span></div>
+                    <div><strong>Remaining:</strong> <span id="mealModalRemaining">0</span></div>
+                </div>
+                <label class="form-label" for="mealTypeSelect">Meal Type</label>
+                <select class="form-select mb-3" id="mealTypeSelect"></select>
+                <label class="form-label" for="requestedCountInput">Members taking meal now</label>
+                <input type="number" min="1" step="1" class="form-control" id="requestedCountInput" required>
+                <div class="form-text">Backend revalidates remaining in a locked transaction.</div>
+                <div id="mealModalError" class="text-danger small mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmMealScanBtn">Confirm Scan</button>
+            </div>
+        </div>
+    </div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-// Check if jsQR loaded
-window.addEventListener('load', function() {
-    if (typeof jsQR === 'undefined') {
-        console.warn('jsQR library failed to load. QR detection may not work.');
-    } else {
-        console.log('jsQR library loaded successfully');
-    }
-});
 document.addEventListener('DOMContentLoaded', function() {
     const qrInput = document.getElementById('qrInput');
     const scanForm = document.getElementById('scanForm');
     const clearBtn = document.getElementById('clearBtn');
     const resultContainer = document.getElementById('resultContainer');
     const resultContent = document.getElementById('resultContent');
-    
+
     const inputMode = document.getElementById('inputMode');
     const cameraMode = document.getElementById('cameraMode');
     const cameraVideo = document.getElementById('cameraVideo');
@@ -165,162 +152,135 @@ document.addEventListener('DOMContentLoaded', function() {
     const switchToInputBtn = document.getElementById('switchToInputBtn');
     const stopCameraBtn = document.getElementById('stopCameraBtn');
 
+    const mealModalEl = document.getElementById('mealAllocationModal');
+    const mealModal = mealModalEl ? new bootstrap.Modal(mealModalEl) : null;
+    const mealModalTeamInfo = document.getElementById('mealModalTeamInfo');
+    const mealModalTotal = document.getElementById('mealModalTotal');
+    const mealModalTaken = document.getElementById('mealModalTaken');
+    const mealModalRemaining = document.getElementById('mealModalRemaining');
+    const mealTypeSelect = document.getElementById('mealTypeSelect');
+    const requestedCountInput = document.getElementById('requestedCountInput');
+    const confirmMealScanBtn = document.getElementById('confirmMealScanBtn');
+    const mealModalError = document.getElementById('mealModalError');
+
     let cameraStream = null;
     let cameraActive = false;
+    let pendingMealContext = null;
 
-    // Auto-focus the input
     function focusInput() {
         if (qrInput && inputMode.style.display !== 'none') {
             qrInput.focus();
         }
     }
 
-    focusInput();
-    setInterval(focusInput, 2000);
+    function renderScanResult(payload, isSuccess) {
+        const info = payload.data || {};
+        const borderColor = isSuccess ? '#10b981' : '#ef4444';
+        const bgColor = isSuccess ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';
+        const icon = isSuccess ? 'OK' : 'ERR';
+        const typeValue = (info.qr_type || info.meal_type || 'N/A').toString().toUpperCase();
+        const stats = Number.isFinite(info.remaining)
+            ? `<div><strong>Total:</strong> ${info.total_members}</div>
+               <div><strong>Taken:</strong> ${info.already_taken}</div>
+               <div><strong>Remaining:</strong> ${info.remaining}</div>`
+            : '';
 
-    // Clear button
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            qrInput.value = '';
-            resultContainer.style.display = 'none';
-            focusInput();
-            if (window.HackHubUI && window.HackHubUI.toast) {
-                window.HackHubUI.toast('Cleared. Ready for next scan.', 'info');
-            }
-        });
+        resultContent.innerHTML = `
+            <div style="border-left: 4px solid ${borderColor}; padding: 12px; background: ${bgColor};">
+                <div class="font-semibold" style="color: ${borderColor};">${icon} ${payload.message || 'Scan processed'}</div>
+                <div class="text-sm hh-muted mt-2">
+                    <div><strong>Team:</strong> ${info.team_name || 'N/A'}</div>
+                    <div><strong>Hackathon:</strong> ${info.hackathon || 'N/A'}</div>
+                    <div><strong>Type:</strong> ${typeValue}</div>
+                    ${stats}
+                </div>
+            </div>
+        `;
+        resultContainer.style.display = 'block';
+        if (window.HackHubUI && window.HackHubUI.toast) {
+            window.HackHubUI.toast(payload.message || 'Scan processed', isSuccess ? 'success' : 'error');
+        }
     }
 
-    // Open Camera
-    if (openCameraBtn) {
-        openCameraBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Camera button clicked');
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Camera not supported on this device or browser.', 'error');
-                }
-                alert('Camera is not supported on this device/browser.\n\nMake sure:\n1. You are using HTTPS (not HTTP)\n2. Browser supports camera (Chrome, Firefox, Safari)\n3. You allow camera permissions');
-                return;
+    async function refreshRemainingForSelectedMeal() {
+        if (!pendingMealContext || !pendingMealContext.team_id || !pendingMealContext.hackathon_id || !mealTypeSelect.value) {
+            return;
+        }
+
+        confirmMealScanBtn.disabled = true;
+        requestedCountInput.disabled = true;
+        mealModalError.classList.add('d-none');
+
+        try {
+            const response = await fetch(
+                `{{ url_for("faculty.meal_scan_remaining") }}?team_id=${encodeURIComponent(pendingMealContext.team_id)}&hackathon_id=${encodeURIComponent(pendingMealContext.hackathon_id)}&meal_type=${encodeURIComponent(mealTypeSelect.value)}`
+            );
+            const payload = await response.json();
+            if (!response.ok || payload.status !== 'success') {
+                throw new Error(payload.message || 'Unable to fetch remaining count.');
             }
 
-            // Most browsers block camera on insecure origins (HTTP), except localhost.
-            if (window.isSecureContext === false) {
-                const host = window.location && window.location.hostname;
-                const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-                if (!isLocalhost) {
-                    const msg = 'Camera requires HTTPS.\n\nOpen this site via https:// or run it on http://localhost (not a LAN IP).';
-                    if (window.HackHubUI && window.HackHubUI.toast) {
-                        window.HackHubUI.toast('Camera blocked: use HTTPS or localhost.', 'error');
-                    }
-                    alert(msg);
-                    return;
-                }
+            const info = payload.data || {};
+            mealModalTotal.textContent = info.total_members ?? 0;
+            mealModalTaken.textContent = info.already_taken ?? 0;
+            mealModalRemaining.textContent = info.remaining ?? 0;
+            requestedCountInput.min = 1;
+            requestedCountInput.max = info.remaining ?? 0;
+            requestedCountInput.value = (info.remaining && info.remaining > 0) ? 1 : 0;
+            requestedCountInput.disabled = !(info.remaining > 0);
+            confirmMealScanBtn.disabled = !(info.remaining > 0);
+
+            if (!(info.remaining > 0)) {
+                mealModalError.textContent = 'All members already took this meal.';
+                mealModalError.classList.remove('d-none');
             }
-            startCamera();
-        });
+        } catch (err) {
+            mealModalError.textContent = err.message;
+            mealModalError.classList.remove('d-none');
+            confirmMealScanBtn.disabled = true;
+        }
     }
 
-    // Switch to Input Mode
-    if (switchToInputBtn) {
-        switchToInputBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            stopCamera();
-            inputMode.style.display = 'block';
-            cameraMode.style.display = 'none';
-            focusInput();
-            if (window.HackHubUI && window.HackHubUI.toast) {
-                window.HackHubUI.toast('Switched to text input mode.', 'info');
-            }
-        });
+    function openMealModal(data) {
+        pendingMealContext = {
+            team_id: data.team_id,
+            hackathon_id: data.hackathon_id,
+            meal_type: data.meal_type,
+            team_name: data.team_name,
+            hackathon: data.hackathon,
+            enabled_meals: Array.isArray(data.enabled_meals) ? data.enabled_meals : []
+        };
+
+        mealModalTeamInfo.textContent = `${(data.meal_type || '').toUpperCase()} | ${data.team_name || 'Unknown team'} | ${data.hackathon || 'Unknown hackathon'}`;
+
+        const mealOptions = pendingMealContext.enabled_meals.length
+            ? pendingMealContext.enabled_meals
+            : (data.meal_type ? [data.meal_type] : []);
+        mealTypeSelect.innerHTML = mealOptions
+            .map(m => `<option value="${m}">${m.toUpperCase()}</option>`)
+            .join('');
+        mealTypeSelect.value = (data.meal_type && mealOptions.includes(data.meal_type)) ? data.meal_type : (mealOptions[0] || '');
+        mealTypeSelect.disabled = mealOptions.length <= 1;
+
+        mealModalTotal.textContent = data.total_members ?? 0;
+        mealModalTaken.textContent = data.already_taken ?? 0;
+        mealModalRemaining.textContent = data.remaining ?? 0;
+        requestedCountInput.min = 1;
+        requestedCountInput.max = data.remaining ?? 0;
+        requestedCountInput.value = (data.remaining && data.remaining > 0) ? 1 : 0;
+        requestedCountInput.disabled = !(data.remaining > 0);
+        confirmMealScanBtn.disabled = !(data.remaining > 0);
+        mealModalError.classList.add('d-none');
+        mealModalError.textContent = '';
+        if (mealModal) {
+            mealModal.show();
+        }
+
+        if (!Number.isFinite(data.remaining)) {
+            refreshRemainingForSelectedMeal();
+        }
     }
 
-    // Stop Camera
-    if (stopCameraBtn) {
-        stopCameraBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            stopCamera();
-            inputMode.style.display = 'block';
-            cameraMode.style.display = 'none';
-            focusInput();
-            if (window.HackHubUI && window.HackHubUI.toast) {
-                window.HackHubUI.toast('Camera stopped.', 'info');
-            }
-        });
-    }
-
-    // Start Camera
-    function startCamera() {
-        console.log('startCamera() called');
-        console.log('mediaDevices available:', !!navigator.mediaDevices);
-        
-        navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        })
-        .then(stream => {
-            console.log('Camera stream obtained', stream);
-            cameraStream = stream;
-            cameraVideo.srcObject = stream;
-            cameraVideo.setAttribute('playsinline', 'true');
-            cameraVideo.setAttribute('muted', 'true');
-            cameraVideo.setAttribute('autoplay', 'true');
-
-            // Wait for video to load (bind handler before play to avoid missing the event)
-            let loadTimeout = setTimeout(() => {
-                console.warn('Video metadata not loaded after 5 seconds');
-                cameraStatus.textContent = '⚠ Video not loading. Check permissions.';
-                cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
-            }, 5000);
-
-            cameraVideo.onloadedmetadata = function() {
-                console.log('Video metadata loaded. Video size:', cameraVideo.videoWidth, 'x', cameraVideo.videoHeight);
-                clearTimeout(loadTimeout);
-                inputMode.style.display = 'none';
-                cameraMode.style.display = 'block';
-                cameraActive = true;
-                cameraStatus.textContent = '🔍 Scanning for QR code…';
-                scanQRFromCamera();
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Camera ready. Point at QR code.', 'success');
-                }
-            };
-            
-            // Force play
-            cameraVideo.play().then(() => {
-                console.log('Video play() succeeded');
-            }).catch(err => {
-                console.error('Video play() failed:', err);
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Could not start video playback: ' + err.message, 'error');
-                }
-            });
-        })
-        .catch(err => {
-            console.error('getUserMedia error:', err.name, err.message);
-            let errorMsg = err.name + ': ' + err.message;
-            
-            if (err.name === 'NotAllowedError') {
-                errorMsg = 'Camera permission denied. Please allow camera access and refresh.';
-            } else if (err.name === 'NotFoundError') {
-                errorMsg = 'No camera device found on this device.';
-            } else if (err.name === 'NotReadableError') {
-                errorMsg = 'Camera is in use by another application.';
-            }
-            
-            console.error('Full error:', err);
-            if (window.HackHubUI && window.HackHubUI.toast) {
-                window.HackHubUI.toast('Camera error: ' + err.message, 'error');
-            }
-            alert('❌ Camera Error: ' + errorMsg + '\n\nSolutions:\n1. Refresh the page\n2. Check browser permissions (Settings → Privacy → Camera)\n3. Close other apps using camera\n4. Use text input mode instead\n\nNote: Camera requires HTTPS on public sites.');
-        });
-    }
-
-    // Stop Camera
     function stopCamera() {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
@@ -333,167 +293,195 @@ document.addEventListener('DOMContentLoaded', function() {
         cameraActive = false;
     }
 
-    // Scan QR from Camera
     function scanQRFromCamera() {
         if (!cameraActive || !cameraStream) {
-            console.log('Camera not active or no stream');
             return;
         }
 
-        const canvas = cameraCanvas;
-        const ctx = canvas.getContext('2d');
-        const video = cameraVideo;
-
-        // Check if video is ready
-        if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-            console.log('Video not ready. readyState:', video.readyState);
+        const ctx = cameraCanvas.getContext('2d');
+        if (cameraVideo.readyState !== cameraVideo.HAVE_ENOUGH_DATA) {
             requestAnimationFrame(scanQRFromCamera);
             return;
         }
 
-        try {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+        cameraCanvas.width = cameraVideo.videoWidth;
+        cameraCanvas.height = cameraVideo.videoHeight;
+        ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
-            // Draw video frame
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, cameraCanvas.width, cameraCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
 
-            // Get image data and scan
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // Check if jsQR is available
-            if (typeof jsQR === 'undefined') {
-                console.error('jsQR library not loaded');
-                cameraStatus.textContent = '⚠ QR library error - try text input';
-                cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
-                return;
-            }
-            
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: 'dontInvert'
-            });
-
-            if (code) {
-                // QR Code found
-                console.log('✓ QR code detected:', code.data);
-                qrInput.value = code.data;
-                cameraStatus.textContent = '✓ QR detected! Auto-submitting…';
-                cameraStatus.style.background = 'rgba(16, 185, 129, 0.8)';
-                cameraStatus.style.color = '#fff';
-                
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('QR code detected!', 'success');
+        if (code) {
+            qrInput.value = code.data;
+            cameraStatus.textContent = 'QR detected. Submitting...';
+            setTimeout(() => {
+                if (cameraActive) {
+                    scanForm.dispatchEvent(new Event('submit'));
+                    stopCamera();
+                    inputMode.style.display = 'block';
+                    cameraMode.style.display = 'none';
                 }
-                
-                // Auto-submit after 300ms
-                setTimeout(() => {
-                    if (cameraActive) {
-                        console.log('Auto-submitting form with token:', code.data);
-                        scanForm.dispatchEvent(new Event('submit'));
-                        stopCamera();
-                        inputMode.style.display = 'block';
-                        cameraMode.style.display = 'none';
-                    }
-                }, 300);
-            } else {
-                cameraStatus.textContent = '🔍 Scanning…';
-                cameraStatus.style.background = 'rgba(0, 0, 0, 0.7)';
-                cameraStatus.style.color = '#fff';
-            }
-        } catch (err) {
-            console.error('Scan error:', err);
-            cameraStatus.textContent = '⚠ Error: ' + err.message;
-            cameraStatus.style.background = 'rgba(239, 68, 68, 0.8)';
-        }
-
-        // Continue scanning
-        if (cameraActive) {
+            }, 200);
+        } else {
+            cameraStatus.textContent = 'Scanning...';
             requestAnimationFrame(scanQRFromCamera);
         }
     }
 
-    // Form submission
-    if (scanForm) {
-        scanForm.addEventListener('submit', function(e) {
+    focusInput();
+    setInterval(focusInput, 2000);
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            
+            qrInput.value = '';
+            resultContainer.style.display = 'none';
+            focusInput();
+        });
+    }
+
+    if (openCameraBtn) {
+        openCameraBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+                cameraVideo.srcObject = cameraStream;
+                await cameraVideo.play();
+                inputMode.style.display = 'none';
+                cameraMode.style.display = 'block';
+                cameraActive = true;
+                scanQRFromCamera();
+            } catch (err) {
+                renderScanResult({ message: `Camera error: ${err.message}`, data: {} }, false);
+            }
+        });
+    }
+
+    if (switchToInputBtn) {
+        switchToInputBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            stopCamera();
+            inputMode.style.display = 'block';
+            cameraMode.style.display = 'none';
+            focusInput();
+        });
+    }
+
+    if (stopCameraBtn) {
+        stopCameraBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            stopCamera();
+            inputMode.style.display = 'block';
+            cameraMode.style.display = 'none';
+            focusInput();
+        });
+    }
+
+    if (scanForm) {
+        scanForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             const qrToken = qrInput.value.trim();
             if (!qrToken) {
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Please scan a QR code or enter token.', 'error');
-                }
                 return;
             }
 
-            if (window.HackHubUI && window.HackHubUI.toast) {
-                window.HackHubUI.toast('Processing scan…', 'info');
-            }
+            try {
+                const response = await fetch('{{ url_for("faculty.scan_qr") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qr_token: qrToken })
+                });
+                const payload = await response.json();
 
-            // Send to backend
-            fetch('{{ url_for("faculty.scan_qr") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ qr_token: qrToken })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Show result
-                if (data.status === 'success') {
-                    const info = data.data || {};
-                    let resultHtml = `
-                        <div style="border-left: 4px solid #10b981; padding: 12px; background: rgba(16,185,129,0.1);">
-                            <div class="font-semibold" style="color: #10b981;">✓ ${data.message}</div>
-                            <div class="text-sm hh-muted mt-2">
-                                <div><strong>Team:</strong> ${info.team_name || 'N/A'}</div>
-                                <div><strong>Hackathon:</strong> ${info.hackathon || 'N/A'}</div>
-                                <div><strong>Type:</strong> ${info.qr_type || 'N/A'}</div>
-                                ${info.count ? `<div><strong>Count:</strong> ${info.count}</div>` : ''}
-                            </div>
-                        </div>
-                    `;
-                    resultContent.innerHTML = resultHtml;
-                    resultContainer.style.display = 'block';
-                    if (window.HackHubUI && window.HackHubUI.toast) {
-                        window.HackHubUI.toast(data.message, 'success');
-                    }
+                if (!response.ok || payload.status !== 'success') {
+                    renderScanResult(payload, false);
+                } else if (payload.action === 'meal_allocation_required' || (payload.data && payload.data.team_id)) {
+                    openMealModal(payload.data || {});
                 } else {
-                    let resultHtml = `
-                        <div style="border-left: 4px solid #ef4444; padding: 12px; background: rgba(239,68,68,0.1);">
-                            <div class="font-semibold" style="color: #ef4444;">✗ ${data.message}</div>
-                            <div class="text-sm hh-muted mt-2">Check the QR code and try again.</div>
-                        </div>
-                    `;
-                    resultContent.innerHTML = resultHtml;
-                    resultContainer.style.display = 'block';
-                    if (window.HackHubUI && window.HackHubUI.toast) {
-                        window.HackHubUI.toast(data.message, 'error');
-                    }
+                    renderScanResult(payload, true);
                 }
 
-                // Clear and re-focus
                 setTimeout(() => {
                     qrInput.value = '';
                     focusInput();
-                }, 800);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                let resultHtml = `
-                    <div style="border-left: 4px solid #ef4444; padding: 12px; background: rgba(239,68,68,0.1);">
-                        <div class="font-semibold" style="color: #ef4444;">✗ Network error</div>
-                        <div class="text-sm hh-muted mt-2">${error.message}</div>
-                    </div>
-                `;
-                resultContent.innerHTML = resultHtml;
-                resultContainer.style.display = 'block';
-                if (window.HackHubUI && window.HackHubUI.toast) {
-                    window.HackHubUI.toast('Network error. Try again.', 'error');
+                }, 600);
+            } catch (error) {
+                renderScanResult({ message: `Network error: ${error.message}`, data: {} }, false);
+            }
+        });
+    }
+
+    if (confirmMealScanBtn) {
+        confirmMealScanBtn.addEventListener('click', async function() {
+            if (!pendingMealContext) {
+                return;
+            }
+
+            const requestedCount = Number(requestedCountInput.value);
+            const maxAllowed = Number(requestedCountInput.max);
+            if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > maxAllowed) {
+                mealModalError.textContent = `Enter a value between 1 and ${maxAllowed}.`;
+                mealModalError.classList.remove('d-none');
+                return;
+            }
+
+            confirmMealScanBtn.disabled = true;
+            mealModalError.classList.add('d-none');
+
+            try {
+                const response = await fetch('{{ url_for("faculty.submit_team_meal_scan") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        team_id: pendingMealContext.team_id,
+                        hackathon_id: pendingMealContext.hackathon_id,
+                        meal_type: mealTypeSelect.value,
+                        requested_count: requestedCount
+                    })
+                });
+                const payload = await response.json();
+
+                renderScanResult({
+                    ...payload,
+                    data: {
+                        ...(payload.data || {}),
+                        team_name: pendingMealContext.team_name,
+                        hackathon: pendingMealContext.hackathon,
+                        qr_type: mealTypeSelect.value
+                    }
+                }, response.ok && payload.status === 'success');
+
+                if (response.ok && payload.status === 'success') {
+                    mealModal.hide();
+                    pendingMealContext = null;
+                } else {
+                    const remainingNow = Number((payload.data || {}).remaining);
+                    if (Number.isFinite(remainingNow)) {
+                        mealModalRemaining.textContent = remainingNow;
+                        mealModalTaken.textContent = Number((payload.data || {}).already_taken ?? mealModalTaken.textContent);
+                        mealModalTotal.textContent = Number((payload.data || {}).total_members ?? mealModalTotal.textContent);
+                        requestedCountInput.max = remainingNow;
+                        requestedCountInput.value = remainingNow > 0 ? 1 : 0;
+                        requestedCountInput.disabled = !(remainingNow > 0);
+                    }
+                    confirmMealScanBtn.disabled = Number(mealModalRemaining.textContent) <= 0;
+                    mealModalError.textContent = payload.message || 'Failed to submit meal scan.';
+                    mealModalError.classList.remove('d-none');
                 }
-                qrInput.value = '';
-                focusInput();
-            });
+            } catch (error) {
+                confirmMealScanBtn.disabled = false;
+                mealModalError.textContent = `Network error: ${error.message}`;
+                mealModalError.classList.remove('d-none');
+            }
+        });
+    }
+
+    if (mealTypeSelect) {
+        mealTypeSelect.addEventListener('change', function() {
+            refreshRemainingForSelectedMeal();
         });
     }
 });

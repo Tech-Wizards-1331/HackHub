@@ -44,6 +44,9 @@ from app.utils.helpers import generate_qr
 from app.utils.qr_manager import generate_team_qrs
 
 
+RNG = random.Random(20260213)
+
+
 @dataclass(frozen=True)
 class DemoUserSpec:
     username: str
@@ -257,8 +260,19 @@ def _ensure_problem_statements(hack: Hackathon, app_root: str, count: int = 6) -
         return existing
 
     problems: list[ProblemStatement] = list(existing)
+    topic_titles = [
+        "Smart Queueing for Campus Cafeterias",
+        "Energy-Aware Classroom Scheduler",
+        "Peer Mentoring Match Platform",
+        "Multilingual Student Helpdesk Assistant",
+        "Accessible Navigation for New Students",
+        "Low-Bandwidth Attendance and Alerts",
+        "AI Lab Slot Optimizer",
+        "Mental Wellness Early Support Signals",
+    ]
+
     for i in range(len(existing) + 1, count + 1):
-        title = f"Demo Problem {i}: Build a useful campus tool"
+        title = f"Challenge {i}: {topic_titles[(i - 1) % len(topic_titles)]}"
         rel_pdf = f"uploads/problem_statements/demo_{hack.id}_{i}.pdf"
         abs_pdf = os.path.join(app_root, "static", rel_pdf)
         _write_minimal_pdf(abs_pdf, title)
@@ -360,24 +374,31 @@ def _ensure_evaluations(
 
     for team in team_list:
         # 1-2 random faculty evaluations per team
-        random.shuffle(faculty_list)
+        RNG.shuffle(faculty_list)
         for evaluator in faculty_list[: min(2, len(faculty_list))]:
             exists = Evaluation.query.filter_by(team_id=team.id, faculty_id=evaluator.id).first()
             if exists:
                 continue
 
-            innovation = random.randint(6, 10)
-            technical = random.randint(5, 10)
-            uiux = random.randint(5, 10)
-            practicality = random.randint(5, 10)
+            innovation = RNG.randint(6, 10)
+            technical = RNG.randint(5, 10)
+            uiux = RNG.randint(5, 10)
+            practicality = RNG.randint(5, 10)
 
             total = float(innovation + technical + uiux + practicality)
 
             created_at = now
             if live_activity:
                 # Spread across last 60 minutes to light up the "live" chart.
-                minutes_ago = random.choice([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
+                minutes_ago = RNG.choice([0, 4, 9, 14, 21, 28, 36, 43, 51, 58])
                 created_at = now - timedelta(minutes=minutes_ago)
+
+            if total >= 34:
+                comment = "Strong technical depth, clear demo flow, and practical fit for campus rollout."
+            elif total >= 29:
+                comment = "Good concept and implementation. Could improve polish and edge-case handling."
+            else:
+                comment = "Promising direction; needs stronger execution and clearer problem validation."
 
             ev = Evaluation(
                 hackathon_id=hack.id,
@@ -385,7 +406,7 @@ def _ensure_evaluations(
                 faculty_id=evaluator.id,
                 stage_id=1,
                 score=total,
-                comments="Demo evaluation",
+                comments=comment,
                 innovation_score=innovation,
                 technical_score=technical,
                 uiux_score=uiux,
@@ -416,14 +437,21 @@ def _ensure_attendance(hack: Hackathon, *, scanned_by: User, participants: list[
         )
 
         if not existing:
-            ts = datetime.combine(event_date, datetime.utcnow().time()).replace(microsecond=0)
+            checkin_hour = 8 + (p.id % 3)
+            checkin_min = (p.id * 7) % 60
+            ts = datetime.combine(event_date, datetime.min.time()).replace(
+                hour=checkin_hour,
+                minute=checkin_min,
+                second=0,
+                microsecond=0,
+            )
             db.session.add(
                 QRLog(
                     participant_id=p.id,
                     scanned_by_id=scanned_by.id,
                     scan_type="REGISTRATION",
                     timestamp=ts,
-                    details="Demo check-in",
+                    details=f"Gate {1 + (p.id % 3)} check-in",
                 )
             )
 
@@ -450,11 +478,19 @@ def _ensure_meal_usage(hack: Hackathon, teams: list[Team]) -> None:
             row = TeamMealUsage.query.filter_by(team_id=team.id, meal_type=mt, usage_date=today).first()
             if row:
                 continue
+            member_count = max(1, len(team.members))
+            if mt == "BREAKFAST":
+                used_count = max(0, member_count - RNG.randint(1, 2))
+            elif mt == "LUNCH":
+                used_count = max(0, member_count - RNG.randint(0, 1))
+            else:
+                used_count = max(0, member_count - RNG.randint(1, 2))
+
             db.session.add(
                 TeamMealUsage(
                     team_id=team.id,
                     meal_type=mt,
-                    used_count=random.randint(0, max(0, len(team.members) - 1)),
+                    used_count=used_count,
                     usage_date=today,
                     last_updated=datetime.utcnow(),
                 )
@@ -505,31 +541,38 @@ def seed_demo() -> None:
 
         # Participants spread over last 7 days for registration trends
         participant_specs: list[DemoUserSpec] = []
-        skills_pool = [
-            "Frontend, React",
-            "Backend, Flask",
-            "AI/ML, Python",
-            "UI/UX, Figma",
-            "Cloud, AWS",
-            "Mobile, Flutter",
-            "Data, SQL",
+        profiles = [
+            ("Aarav Sharma", "Frontend, React, Tailwind", "Intermediate", "NIT Bhopal"),
+            ("Ishita Verma", "Backend, Flask, PostgreSQL", "Advanced", "VIT Vellore"),
+            ("Rohan Nair", "Data, SQL, Analytics", "Intermediate", "SRM Institute"),
+            ("Meera Kulkarni", "UI/UX, Figma, Prototyping", "Beginner", "MIT-WPU"),
+            ("Kabir Singh", "Cloud, AWS, Docker", "Advanced", "BITS Pilani"),
+            ("Ananya Das", "AI/ML, Python, NLP", "Intermediate", "IIIT Delhi"),
+            ("Pranav Rao", "Mobile, Flutter, Firebase", "Intermediate", "PES University"),
+            ("Sneha Iyer", "Backend, APIs, Auth", "Advanced", "Amity University"),
+            ("Yash Patil", "Frontend, TypeScript", "Beginner", "Thapar Institute"),
+            ("Diya Menon", "Product, User Research", "Intermediate", "Manipal University"),
+            ("Aditya Jain", "DevOps, CI/CD, Linux", "Advanced", "Nirma University"),
+            ("Ritika Sen", "AI/ML, Computer Vision", "Advanced", "IIT Bhubaneswar"),
+            ("Neel Gupta", "Data Engineering, ETL", "Intermediate", "UPES Dehradun"),
+            ("Pooja Arora", "UI/UX, Accessibility", "Intermediate", "Christ University"),
+            ("Arjun Malhotra", "Cybersecurity, Secure Coding", "Advanced", "LPU Punjab"),
         ]
-        colleges = ["ABC Institute", "XYZ University", "Innovation College"]
-        exp = ["Beginner", "Intermediate", "Advanced"]
 
         for i in range(1, 16):
-            created_at = now - timedelta(days=(i % 7), hours=random.randint(0, 23))
+            full_name, skills, level, college = profiles[i - 1]
+            created_at = now - timedelta(days=(i % 7), hours=RNG.randint(0, 23), minutes=RNG.randint(0, 59))
             participant_specs.append(
                 DemoUserSpec(
                     username=f"participant{i}",
                     email=f"participant{i}@hackhub.demo",
                     role=UserRole.PARTICIPANT,
                     password="participant123",
-                    full_name=f"Participant {i}",
-                    skills=skills_pool[i % len(skills_pool)],
-                    experience_level=exp[i % len(exp)],
-                    college=colleges[i % len(colleges)],
-                    is_public=(i % 3 == 0),  # some solo-public participants
+                    full_name=full_name,
+                    skills=skills,
+                    experience_level=level,
+                    college=college,
+                    is_public=(i % 4 == 0),  # some solo-public participants
                     created_at=created_at,
                 )
             )
@@ -596,7 +639,9 @@ def seed_demo() -> None:
         team_open_1 = _get_or_create_team(hackathon=hack_open, name="Team Aurora", leader=participants[0])
         team_open_2 = _get_or_create_team(hackathon=hack_open, name="Team Nebula", leader=participants[1])
         _ensure_team_member(team_open_1, participants[2])
+        _ensure_team_member(team_open_1, participants[4])
         _ensure_team_member(team_open_2, participants[3])
+        _ensure_team_member(team_open_2, participants[5])
         _set_team_created_at(team_open_1.id, now - timedelta(days=2))
         _set_team_created_at(team_open_2.id, now - timedelta(days=1))
 
@@ -605,8 +650,10 @@ def seed_demo() -> None:
         team_sel_2 = _get_or_create_team(hackathon=hack_select, name="Team Atlas", leader=participants[5])
         team_sel_3 = _get_or_create_team(hackathon=hack_select, name="Team Vector", leader=participants[6])
         _ensure_team_member(team_sel_1, participants[7])
+        _ensure_team_member(team_sel_1, participants[10])
         _ensure_team_member(team_sel_2, participants[8])
         _ensure_team_member(team_sel_3, participants[9])
+        _ensure_team_member(team_sel_3, participants[11])
         # Assign 2 problems; leave others free for selection UI
         if team_sel_1.problem_statement_id is None:
             team_sel_1.problem_statement_id = probs_select[0].id
@@ -620,15 +667,20 @@ def seed_demo() -> None:
         # Evaluation hack
         team_eval_1 = _get_or_create_team(hackathon=hack_eval, name="Team Nova", leader=participants[10])
         team_eval_2 = _get_or_create_team(hackathon=hack_eval, name="Team Quantum", leader=participants[11])
+        team_eval_3 = _get_or_create_team(hackathon=hack_eval, name="Team Helix", leader=participants[8])
         _ensure_team_member(team_eval_1, participants[12])
         _ensure_team_member(team_eval_2, participants[13])
+        _ensure_team_member(team_eval_3, participants[14])
         if team_eval_1.problem_statement_id is None:
             team_eval_1.problem_statement_id = probs_eval[0].id
         if team_eval_2.problem_statement_id is None:
             team_eval_2.problem_statement_id = probs_eval[1].id
+        if team_eval_3.problem_statement_id is None:
+            team_eval_3.problem_statement_id = probs_eval[2].id
         db.session.commit()
         _set_team_created_at(team_eval_1.id, now - timedelta(days=1))
         _set_team_created_at(team_eval_2.id, now - timedelta(days=0))
+        _set_team_created_at(team_eval_3.id, now - timedelta(hours=10))
 
         # Results-published hack
         team_res_1 = _get_or_create_team(hackathon=hack_results, name="Team Zenith", leader=participants[14])
@@ -651,12 +703,12 @@ def seed_demo() -> None:
             _ensure_faculty_assignment(hack, faculty2)
 
         # --- Evaluations ---
-        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2], live_activity=True)
+        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2, team_eval_3], live_activity=True)
         _ensure_evaluations(hack_results, [faculty1, faculty2], [team_res_1], live_activity=False)
 
         # --- Attendance + meal usage ---
-        _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=8)
-        _ensure_meal_usage(hack_eval, [team_eval_1, team_eval_2])
+        _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=11)
+        _ensure_meal_usage(hack_eval, [team_eval_1, team_eval_2, team_eval_3])
         _ensure_meal_usage(hack_open, [team_open_1, team_open_2])
 
         print("\nDemo data ready.")

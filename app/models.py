@@ -111,6 +111,9 @@ class TeamMember(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
     user = db.relationship('User', backref='team_memberships')
+    __table_args__ = (
+        db.Index('ix_team_members_team_id', 'team_id'),
+    )
 
 class TeamJoinRequest(db.Model):
     __tablename__ = 'team_join_requests'
@@ -194,6 +197,27 @@ class TeamMealUsage(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('team_id', 'meal_type', 'usage_date', name='uq_team_meal_daily_usage'),
+    )
+
+class MealScan(db.Model):
+    __tablename__ = 'meal_scans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
+    participant_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    meal_type = db.Column(
+        db.Enum('breakfast', 'lunch', 'dinner', name='meal_type_enum'),
+        nullable=False
+    )
+    scanned_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    scanned_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('hackathon_id', 'participant_id', 'meal_type', name='uq_meal_scan_once_per_meal'),
+        db.Index('ix_meal_scans_team_id', 'team_id'),
+        db.Index('ix_meal_scans_meal_type', 'meal_type'),
+        db.Index('ix_meal_scans_hackathon_team_meal', 'hackathon_id', 'team_id', 'meal_type'),
     )
 
 
