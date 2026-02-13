@@ -1,15 +1,19 @@
 from flask import render_template, request, session, redirect, url_for, flash, jsonify
 from . import faculty_bp
 from app.extensions import db
-<<<<<<< HEAD
-from app.models import User, Team, TeamMember, Evaluation, Hackathon, HackathonStatus, FacultyAssignment, TeamQR, MealScan
-=======
 from app.models import (
-    User, QRLog, Team, Evaluation, Hackathon, HackathonStatus,
-    FacultyAssignment, TeamQR, TeamMealUsage, TeamMember
+    User,
+    QRLog,
+    Team,
+    TeamMember,
+    Evaluation,
+    Hackathon,
+    HackathonStatus,
+    FacultyAssignment,
+    TeamQR,
+    TeamMealUsage,
+    MealScan,
 )
-from sqlalchemy import func
->>>>>>> 6d7a7a59c6fe15948cc23d3448797187c92b2de9
 from functools import wraps
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -198,8 +202,16 @@ def _allocate_meals_atomic(team_id, hackathon_id, meal_type, requested_count, sc
                     SELECT :hackathon_id, participant_id, :team_id, :meal_type, :scanned_by, CURRENT_TIMESTAMP
                     FROM eligible
                 ''')
-                result = db.session.execute(insert_sql, params)
-                inserted_count = int(result.rowcount or 0)
+                db.session.execute(insert_sql, params)
+
+                # SQLite/SQLAlchemy: rowcount can be unreliable for INSERT..SELECT.
+                # Derive inserted rows from the change in count within this transaction.
+                after_taken = db.session.query(MealScan).filter_by(
+                    team_id=team_id,
+                    hackathon_id=hackathon_id,
+                    meal_type=meal_type,
+                ).count()
+                inserted_count = max(after_taken - already_taken, 0)
             else:
                 insert_sql = text('''
                     WITH eligible AS (
