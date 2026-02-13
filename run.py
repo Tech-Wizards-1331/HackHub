@@ -4,6 +4,13 @@ import os
 app = create_app()
 
 with app.app_context():
+    uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    try:
+        dialect = db.session.get_bind().dialect.name
+    except Exception:
+        dialect = 'unknown'
+    print(f"SQLALCHEMY_DATABASE_URI: {uri}")
+    print(f"DB dialect: {dialect}")
     db.create_all()
 
 if __name__ == '__main__':

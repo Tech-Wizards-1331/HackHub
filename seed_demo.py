@@ -127,26 +127,34 @@ def _get_or_create_user(spec: DemoUserSpec) -> User:
     ).first()
 
     if user:
-        # Keep existing password_hash; update profile bits if missing.
+        # Keep existing password_hash; update profile bits.
+        # For demo accounts, prefer the spec so repeated seeding keeps data realistic.
+        is_demo_account = (spec.email or "").endswith("@hackhub.demo") and (user.email or "").endswith("@hackhub.demo")
+
         changed = False
-        if user.full_name is None and spec.full_name:
-            user.full_name = spec.full_name
-            changed = True
-        if user.skills is None and spec.skills:
-            user.skills = spec.skills
-            changed = True
-        if user.experience_level is None and spec.experience_level:
-            user.experience_level = spec.experience_level
-            changed = True
-        if user.college is None and spec.college:
-            user.college = spec.college
-            changed = True
+        if spec.full_name and (is_demo_account or user.full_name is None):
+            if user.full_name != spec.full_name:
+                user.full_name = spec.full_name
+                changed = True
+        if spec.skills and (is_demo_account or user.skills is None):
+            if user.skills != spec.skills:
+                user.skills = spec.skills
+                changed = True
+        if spec.experience_level and (is_demo_account or user.experience_level is None):
+            if user.experience_level != spec.experience_level:
+                user.experience_level = spec.experience_level
+                changed = True
+        if spec.college and (is_demo_account or user.college is None):
+            if user.college != spec.college:
+                user.college = spec.college
+                changed = True
         if spec.role and user.role != spec.role:
             user.role = spec.role
             changed = True
-        if spec.created_at and getattr(user, "created_at", None) is None:
-            user.created_at = spec.created_at
-            changed = True
+        if spec.created_at and (is_demo_account or getattr(user, "created_at", None) is None):
+            if getattr(user, "created_at", None) != spec.created_at:
+                user.created_at = spec.created_at
+                changed = True
         if user.is_public != spec.is_public:
             user.is_public = spec.is_public
             changed = True
@@ -539,29 +547,49 @@ def seed_demo() -> None:
             )
         )
 
-        # Participants spread over last 7 days for registration trends
+        # Participants spread over last 10 days for registration trends
         participant_specs: list[DemoUserSpec] = []
         profiles = [
-            ("Aarav Sharma", "Frontend, React, Tailwind", "Intermediate", "NIT Bhopal"),
-            ("Ishita Verma", "Backend, Flask, PostgreSQL", "Advanced", "VIT Vellore"),
-            ("Rohan Nair", "Data, SQL, Analytics", "Intermediate", "SRM Institute"),
-            ("Meera Kulkarni", "UI/UX, Figma, Prototyping", "Beginner", "MIT-WPU"),
-            ("Kabir Singh", "Cloud, AWS, Docker", "Advanced", "BITS Pilani"),
-            ("Ananya Das", "AI/ML, Python, NLP", "Intermediate", "IIIT Delhi"),
-            ("Pranav Rao", "Mobile, Flutter, Firebase", "Intermediate", "PES University"),
-            ("Sneha Iyer", "Backend, APIs, Auth", "Advanced", "Amity University"),
-            ("Yash Patil", "Frontend, TypeScript", "Beginner", "Thapar Institute"),
-            ("Diya Menon", "Product, User Research", "Intermediate", "Manipal University"),
-            ("Aditya Jain", "DevOps, CI/CD, Linux", "Advanced", "Nirma University"),
-            ("Ritika Sen", "AI/ML, Computer Vision", "Advanced", "IIT Bhubaneswar"),
-            ("Neel Gupta", "Data Engineering, ETL", "Intermediate", "UPES Dehradun"),
-            ("Pooja Arora", "UI/UX, Accessibility", "Intermediate", "Christ University"),
-            ("Arjun Malhotra", "Cybersecurity, Secure Coding", "Advanced", "LPU Punjab"),
+            ("Aarav Sharma", "Frontend (React), Tailwind, UI polish", "Intermediate", "NIT Bhopal"),
+            ("Ishita Verma", "Backend (Flask), PostgreSQL, API design", "Advanced", "VIT Vellore"),
+            ("Rohan Nair", "Data (SQL), analytics dashboards, reporting", "Intermediate", "SRM Institute"),
+            ("Meera Kulkarni", "UI/UX (Figma), prototyping, design systems", "Beginner", "MIT-WPU"),
+            ("Kabir Singh", "Cloud (AWS), Docker, deployment", "Advanced", "BITS Pilani"),
+            ("Ananya Das", "AI/ML (Python), NLP, model evaluation", "Intermediate", "IIIT Delhi"),
+            ("Pranav Rao", "Mobile (Flutter), Firebase, app release", "Intermediate", "PES University"),
+            ("Sneha Iyer", "Backend (REST), auth, security basics", "Advanced", "Amity University"),
+            ("Yash Patil", "Frontend (TypeScript), React, component libraries", "Beginner", "Thapar Institute"),
+            ("Diya Menon", "Product, user research, MVP planning", "Intermediate", "Manipal University"),
+            ("Aditya Jain", "DevOps, CI/CD, Linux, observability", "Advanced", "Nirma University"),
+            ("Ritika Sen", "AI/ML, computer vision, data labeling", "Advanced", "IIT Bhubaneswar"),
+            ("Neel Gupta", "Data engineering, ETL, pipelines", "Intermediate", "UPES Dehradun"),
+            ("Pooja Arora", "UI/UX, accessibility, UX writing", "Intermediate", "Christ University"),
+            ("Arjun Malhotra", "Cybersecurity, secure coding, threat modeling", "Advanced", "LPU Punjab"),
+            ("Tanvi Kapoor", "Backend (Django), auth, APIs", "Intermediate", "DTU Delhi"),
+            ("Kunal Mehra", "Frontend (Next.js), SEO, performance", "Advanced", "NSUT Delhi"),
+            ("Sanya Bose", "Data (Python), visualization, storytelling", "Beginner", "Jadavpur University"),
+            ("Harsh Vardhan", "Cloud (GCP), Terraform, infra", "Intermediate", "IIT Mandi"),
+            ("Nidhi Sharma", "QA, test automation, reliability", "Intermediate", "IGDTUW"),
+            ("Vikram Joshi", "Backend (Java), Spring basics, APIs", "Beginner", "Pune University"),
+            ("Ayesha Khan", "UI/UX (Figma), user flows, prototyping", "Advanced", "Jamia Millia Islamia"),
+            ("Sahil Bansal", "AI/ML, recommendation systems, Python", "Intermediate", "IIIT Hyderabad"),
+            ("Rhea Dutta", "Mobile (Android), Kotlin, offline-first", "Intermediate", "KIIT Bhubaneswar"),
+            ("Dev Patel", "Backend (Node.js), queues, caching", "Advanced", "DAIICT Gandhinagar"),
+            ("Ira Thomas", "Frontend, accessibility, UI testing", "Intermediate", "St. Xavier's College"),
+            ("Manav Sethi", "Security, OWASP, secure APIs", "Intermediate", "Chandigarh University"),
+            ("Shreya Pillai", "Data, SQL, metrics, experimentation", "Advanced", "IIM Indore"),
+            ("Aman Chopra", "DevOps, Docker, monitoring", "Beginner", "VNIT Nagpur"),
+            ("Neha Reddy", "AI/ML, time series, forecasting", "Intermediate", "NIT Warangal"),
+            ("Ritesh Gupta", "Backend (Flask), integrations, payments", "Advanced", "IIIT Bangalore"),
+            ("Kavya S", "UI/UX, content design, user onboarding", "Beginner", "Anna University"),
+            ("Om Prakash", "IoT, sensors, hardware prototyping", "Intermediate", "IIT (Fictional)"),
+            ("Pritam Roy", "Frontend (Vue), state management, UI", "Intermediate", "IIEST Shibpur"),
+            ("Simran Kaur", "Cloud, Azure, serverless", "Advanced", "GGSIPU"),
+            ("Zoya Ali", "Product, stakeholder demos, pitch decks", "Intermediate", "Symbiosis"),
         ]
 
-        for i in range(1, 16):
-            full_name, skills, level, college = profiles[i - 1]
-            created_at = now - timedelta(days=(i % 7), hours=RNG.randint(0, 23), minutes=RNG.randint(0, 59))
+        for i, (full_name, skills, level, college) in enumerate(profiles, start=1):
+            created_at = now - timedelta(days=(i % 10), hours=RNG.randint(0, 23), minutes=RNG.randint(0, 59))
             participant_specs.append(
                 DemoUserSpec(
                     username=f"participant{i}",
@@ -635,63 +663,88 @@ def seed_demo() -> None:
         _ensure_rubric(hack_results)
 
         # --- Teams + members ---
-        # Registration-open hack: a couple of teams + many solo participants to find
+        # Registration-open hack: multiple teams + plenty of solo participants to discover.
         team_open_1 = _get_or_create_team(hackathon=hack_open, name="Team Aurora", leader=participants[0])
         team_open_2 = _get_or_create_team(hackathon=hack_open, name="Team Nebula", leader=participants[1])
-        _ensure_team_member(team_open_1, participants[2])
-        _ensure_team_member(team_open_1, participants[4])
-        _ensure_team_member(team_open_2, participants[3])
-        _ensure_team_member(team_open_2, participants[5])
-        _set_team_created_at(team_open_1.id, now - timedelta(days=2))
-        _set_team_created_at(team_open_2.id, now - timedelta(days=1))
+        team_open_3 = _get_or_create_team(hackathon=hack_open, name="Team Beacon", leader=participants[2])
+        team_open_4 = _get_or_create_team(hackathon=hack_open, name="Team Orbit", leader=participants[3])
+
+        for p in (participants[4], participants[5], participants[6]):
+            _ensure_team_member(team_open_1, p)
+        for p in (participants[7], participants[8], participants[9]):
+            _ensure_team_member(team_open_2, p)
+        for p in (participants[10], participants[11]):
+            _ensure_team_member(team_open_3, p)
+        for p in (participants[12], participants[13], participants[14]):
+            _ensure_team_member(team_open_4, p)
+
+        _set_team_created_at(team_open_1.id, now - timedelta(days=3))
+        _set_team_created_at(team_open_2.id, now - timedelta(days=2))
+        _set_team_created_at(team_open_3.id, now - timedelta(days=2, hours=3))
+        _set_team_created_at(team_open_4.id, now - timedelta(days=1))
 
         # Problem-selection hack: teams with some problems already picked
-        team_sel_1 = _get_or_create_team(hackathon=hack_select, name="Team Prism", leader=participants[4])
-        team_sel_2 = _get_or_create_team(hackathon=hack_select, name="Team Atlas", leader=participants[5])
-        team_sel_3 = _get_or_create_team(hackathon=hack_select, name="Team Vector", leader=participants[6])
-        _ensure_team_member(team_sel_1, participants[7])
-        _ensure_team_member(team_sel_1, participants[10])
-        _ensure_team_member(team_sel_2, participants[8])
-        _ensure_team_member(team_sel_3, participants[9])
-        _ensure_team_member(team_sel_3, participants[11])
+        team_sel_1 = _get_or_create_team(hackathon=hack_select, name="Team Prism", leader=participants[15])
+        team_sel_2 = _get_or_create_team(hackathon=hack_select, name="Team Atlas", leader=participants[16])
+        team_sel_3 = _get_or_create_team(hackathon=hack_select, name="Team Vector", leader=participants[17])
+        team_sel_4 = _get_or_create_team(hackathon=hack_select, name="Team Mosaic", leader=participants[18])
+        _ensure_team_member(team_sel_1, participants[19])
+        _ensure_team_member(team_sel_1, participants[20])
+        _ensure_team_member(team_sel_2, participants[21])
+        _ensure_team_member(team_sel_3, participants[22])
+        _ensure_team_member(team_sel_3, participants[23])
+        _ensure_team_member(team_sel_4, participants[24])
+        _ensure_team_member(team_sel_4, participants[25])
         # Assign 2 problems; leave others free for selection UI
         if team_sel_1.problem_statement_id is None:
             team_sel_1.problem_statement_id = probs_select[0].id
         if team_sel_2.problem_statement_id is None:
             team_sel_2.problem_statement_id = probs_select[1].id
         db.session.commit()
-        _set_team_created_at(team_sel_1.id, now - timedelta(days=4))
-        _set_team_created_at(team_sel_2.id, now - timedelta(days=3))
-        _set_team_created_at(team_sel_3.id, now - timedelta(days=2))
+        _set_team_created_at(team_sel_1.id, now - timedelta(days=5))
+        _set_team_created_at(team_sel_2.id, now - timedelta(days=4))
+        _set_team_created_at(team_sel_3.id, now - timedelta(days=3))
+        _set_team_created_at(team_sel_4.id, now - timedelta(days=2))
 
         # Evaluation hack
-        team_eval_1 = _get_or_create_team(hackathon=hack_eval, name="Team Nova", leader=participants[10])
-        team_eval_2 = _get_or_create_team(hackathon=hack_eval, name="Team Quantum", leader=participants[11])
-        team_eval_3 = _get_or_create_team(hackathon=hack_eval, name="Team Helix", leader=participants[8])
-        _ensure_team_member(team_eval_1, participants[12])
-        _ensure_team_member(team_eval_2, participants[13])
-        _ensure_team_member(team_eval_3, participants[14])
+        team_eval_1 = _get_or_create_team(hackathon=hack_eval, name="Team Nova", leader=participants[26])
+        team_eval_2 = _get_or_create_team(hackathon=hack_eval, name="Team Quantum", leader=participants[27])
+        team_eval_3 = _get_or_create_team(hackathon=hack_eval, name="Team Helix", leader=participants[28])
+        team_eval_4 = _get_or_create_team(hackathon=hack_eval, name="Team Lattice", leader=participants[29])
+        _ensure_team_member(team_eval_1, participants[30])
+        _ensure_team_member(team_eval_1, participants[31])
+        _ensure_team_member(team_eval_2, participants[32])
+        _ensure_team_member(team_eval_3, participants[33])
+        _ensure_team_member(team_eval_4, participants[34])
+        _ensure_team_member(team_eval_4, participants[35])
         if team_eval_1.problem_statement_id is None:
             team_eval_1.problem_statement_id = probs_eval[0].id
         if team_eval_2.problem_statement_id is None:
             team_eval_2.problem_statement_id = probs_eval[1].id
         if team_eval_3.problem_statement_id is None:
             team_eval_3.problem_statement_id = probs_eval[2].id
+        if team_eval_4.problem_statement_id is None and len(probs_eval) > 3:
+            team_eval_4.problem_statement_id = probs_eval[3].id
         db.session.commit()
         _set_team_created_at(team_eval_1.id, now - timedelta(days=1))
         _set_team_created_at(team_eval_2.id, now - timedelta(days=0))
         _set_team_created_at(team_eval_3.id, now - timedelta(hours=10))
+        _set_team_created_at(team_eval_4.id, now - timedelta(hours=3))
 
         # Results-published hack
-        team_res_1 = _get_or_create_team(hackathon=hack_results, name="Team Zenith", leader=participants[14])
+        team_res_1 = _get_or_create_team(hackathon=hack_results, name="Team Zenith", leader=participants[12])
+        team_res_2 = _get_or_create_team(hackathon=hack_results, name="Team Summit", leader=participants[13])
         if team_res_1.problem_statement_id is None:
             team_res_1.problem_statement_id = probs_results[0].id
+        if team_res_2.problem_statement_id is None and len(probs_results) > 1:
+            team_res_2.problem_statement_id = probs_results[1].id
         db.session.commit()
         _set_team_created_at(team_res_1.id, now - timedelta(days=6))
+        _set_team_created_at(team_res_2.id, now - timedelta(days=6, hours=6))
 
         # Ensure solo participants exist for registration-open hack (public + not in any team there)
         # Make a few extra participants public explicitly.
-        for p in participants[3:10]:
+        for p in participants[8:26]:
             # If they are already in teams for other hackathons, that's fine.
             if p.role == UserRole.PARTICIPANT:
                 p.is_public = True
@@ -703,13 +756,13 @@ def seed_demo() -> None:
             _ensure_faculty_assignment(hack, faculty2)
 
         # --- Evaluations ---
-        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2, team_eval_3], live_activity=True)
-        _ensure_evaluations(hack_results, [faculty1, faculty2], [team_res_1], live_activity=False)
+        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2, team_eval_3, team_eval_4], live_activity=True)
+        _ensure_evaluations(hack_results, [faculty1, faculty2], [team_res_1, team_res_2], live_activity=False)
 
         # --- Attendance + meal usage ---
-        _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=11)
-        _ensure_meal_usage(hack_eval, [team_eval_1, team_eval_2, team_eval_3])
-        _ensure_meal_usage(hack_open, [team_open_1, team_open_2])
+        _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=18)
+        _ensure_meal_usage(hack_eval, [team_eval_1, team_eval_2, team_eval_3, team_eval_4])
+        _ensure_meal_usage(hack_open, [team_open_1, team_open_2, team_open_3, team_open_4])
 
         print("\nDemo data ready.")
         print("Login credentials:")

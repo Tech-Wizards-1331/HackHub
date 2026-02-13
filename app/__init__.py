@@ -13,6 +13,9 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     sess.init_app(app)
+
+    # Ensure model metadata is registered before any create_all()/migrations.
+    from . import models  # noqa: F401
     
     from .blueprints.auth import auth_bp
     from .blueprints.admin import admin_bp

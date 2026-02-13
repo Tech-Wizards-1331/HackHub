@@ -162,36 +162,60 @@ def _allocate_meals_atomic(team_id, hackathon_id, meal_type, requested_count, sc
                     }
                 }
 
-            insert_sql = text('''
-                WITH eligible AS (
-                    SELECT tm.user_id AS participant_id
-                    FROM team_members tm
-                    LEFT JOIN meal_scans ms
-                      ON ms.hackathon_id = :hackathon_id
-                     AND ms.team_id = :team_id
-                     AND ms.meal_type = :meal_type
-                     AND ms.participant_id = tm.user_id
-                    WHERE tm.team_id = :team_id
-                      AND ms.id IS NULL
-                    ORDER BY tm.id
-                    LIMIT :requested_count
-                )
-                INSERT INTO meal_scans (hackathon_id, participant_id, team_id, meal_type, scanned_by, scanned_at)
-                SELECT :hackathon_id, e.participant_id, :team_id, :meal_type, :scanned_by, CURRENT_TIMESTAMP
-                FROM eligible e
-                ON CONFLICT (hackathon_id, participant_id, meal_type) DO NOTHING
-                RETURNING participant_id
-            ''')
-
-            inserted_rows = db.session.execute(insert_sql, {
+            params = {
                 'hackathon_id': hackathon_id,
                 'team_id': team_id,
                 'meal_type': meal_type,
                 'requested_count': requested_count,
                 'scanned_by': scanned_by,
-            }).fetchall()
+            }
 
-            inserted_count = len(inserted_rows)
+            dialect_name = db.session.get_bind().dialect.name
+            if dialect_name == 'sqlite':
+                insert_sql = text('''
+                    WITH eligible AS (
+                        SELECT tm.user_id AS participant_id
+                        FROM team_members tm
+                        LEFT JOIN meal_scans ms
+                          ON ms.hackathon_id = :hackathon_id
+                         AND ms.team_id = :team_id
+                         AND ms.meal_type = :meal_type
+                         AND ms.participant_id = tm.user_id
+                        WHERE tm.team_id = :team_id
+                          AND ms.id IS NULL
+                        ORDER BY tm.id
+                        LIMIT :requested_count
+                    )
+                    INSERT OR IGNORE INTO meal_scans (hackathon_id, participant_id, team_id, meal_type, scanned_by, scanned_at)
+                    SELECT :hackathon_id, participant_id, :team_id, :meal_type, :scanned_by, CURRENT_TIMESTAMP
+                    FROM eligible
+                ''')
+                result = db.session.execute(insert_sql, params)
+                inserted_count = int(result.rowcount or 0)
+            else:
+                insert_sql = text('''
+                    WITH eligible AS (
+                        SELECT tm.user_id AS participant_id
+                        FROM team_members tm
+                        LEFT JOIN meal_scans ms
+                          ON ms.hackathon_id = :hackathon_id
+                         AND ms.team_id = :team_id
+                         AND ms.meal_type = :meal_type
+                         AND ms.participant_id = tm.user_id
+                        WHERE tm.team_id = :team_id
+                          AND ms.id IS NULL
+                        ORDER BY tm.id
+                        LIMIT :requested_count
+                    )
+                    INSERT INTO meal_scans (hackathon_id, participant_id, team_id, meal_type, scanned_by, scanned_at)
+                    SELECT :hackathon_id, participant_id, :team_id, :meal_type, :scanned_by, CURRENT_TIMESTAMP
+                    FROM eligible
+                    ON CONFLICT (hackathon_id, participant_id, meal_type) DO NOTHING
+                    RETURNING participant_id
+                ''')
+                inserted_rows = db.session.execute(insert_sql, params).fetchall()
+                inserted_count = len(inserted_rows)
+
             if inserted_count != requested_count:
                 raise IntegrityError(
                     f'Expected to insert {requested_count}, inserted {inserted_count}.',
