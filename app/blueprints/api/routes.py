@@ -1,7 +1,7 @@
 from flask import jsonify, request, session
 from . import api_bp
 from app.extensions import db
-from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage, TeamJoinRequest
+from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage, TeamJoinRequest, TeamVisibility
 from sqlalchemy import and_
 from sqlalchemy import text
 from datetime import datetime, timedelta
@@ -31,13 +31,18 @@ def get_solo_participants(hackathon_id):
     
     skills_filter = request.args.get('skills', '').strip()
     
-    # Get users who are participants AND not in any team for this hackathon AND is_public = TRUE
-    solo_query = db.session.query(User).filter(
-        User.role == UserRole.PARTICIPANT,
-        User.is_public == True,
-        ~User.id.in_(
-            db.session.query(TeamMember.user_id).join(Team).filter(
-                Team.hackathon_id == hackathon_id
+    # Get users who are participants AND not in any team
+    # AND have active visibility for this hackathon.
+    solo_query = (
+        db.session.query(User)
+        .join(TeamVisibility, TeamVisibility.user_id == User.id)
+        .filter(
+            User.role == UserRole.PARTICIPANT,
+            User.is_public == True,
+            TeamVisibility.hackathon_id == hackathon_id,
+            TeamVisibility.is_active == True,
+            ~User.id.in_(
+                db.session.query(TeamMember.user_id)
             )
         )
     )

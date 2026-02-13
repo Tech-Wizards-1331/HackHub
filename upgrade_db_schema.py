@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 
+from sqlalchemy import text
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run HackHub DB schema upgrade (no server).")
@@ -28,8 +30,25 @@ def main() -> int:
 
     # Import here so running this script doesn't require Flask env vars upfront.
     from app import create_app  # pylint: disable=import-error
+    from app.extensions import db  # pylint: disable=import-error
 
     app = create_app()
+
+    with app.app_context():
+        if db.engine.dialect.name == "sqlite":
+            cols = [row[1] for row in db.session.execute(text("PRAGMA table_info(users)")).all()]
+            if "contact" in cols:
+                try:
+                    db.session.execute(text("ALTER TABLE users DROP COLUMN contact"))
+                    db.session.commit()
+                    if not args.quiet:
+                        print("Removed users.contact column.")
+                except Exception as exc:
+                    db.session.rollback()
+                    if not args.quiet:
+                        print(f"Warning: could not drop users.contact column: {exc}")
+        elif not args.quiet:
+            print("Note: Non-SQLite DB detected. Use your migration tool to drop users.contact.")
 
     if not args.quiet:
         uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")

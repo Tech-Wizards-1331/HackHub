@@ -1,7 +1,15 @@
 from flask import render_template, request, session, redirect, url_for, flash, jsonify
 from . import faculty_bp
 from app.extensions import db
+<<<<<<< HEAD
 from app.models import User, Team, TeamMember, Evaluation, Hackathon, HackathonStatus, FacultyAssignment, TeamQR, MealScan
+=======
+from app.models import (
+    User, QRLog, Team, Evaluation, Hackathon, HackathonStatus,
+    FacultyAssignment, TeamQR, TeamMealUsage, TeamMember
+)
+from sqlalchemy import func
+>>>>>>> 6d7a7a59c6fe15948cc23d3448797187c92b2de9
 from functools import wraps
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -13,7 +21,7 @@ def faculty_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'faculty':
-            flash('Faculty access only')
+            flash('Faculty access only', 'error')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -458,10 +466,15 @@ def evaluate_teams_list(hackathon_id):
     # Check assignment
     assignment = FacultyAssignment.query.filter_by(hackathon_id=hackathon_id, faculty_id=session['user_id']).first()
     if not assignment:
-        flash("You are not assigned to this hackathon.")
+        flash("You are not assigned to this hackathon.", "error")
         return redirect(url_for('faculty.dashboard'))
         
     hackathon = Hackathon.query.get_or_404(hackathon_id)
+    
+    # Backend validation: Only allow evaluation when hackathon status is EVALUATION
+    if hackathon.status != HackathonStatus.EVALUATION:
+        flash("Evaluation is not enabled for this hackathon yet.", "error")
+        return redirect(url_for('faculty.dashboard'))
     
     # Get set of team IDs already evaluated by this faculty
     evaluated_teams = db.session.query(Evaluation.team_id).filter_by(
@@ -486,6 +499,11 @@ def evaluate_team(team_id):
     if not assignment:
         flash("You are not assigned to evaluate this hackathon.", "error")
         return redirect(url_for('faculty.dashboard'))
+    
+    # Backend validation: Only allow evaluation when hackathon status is EVALUATION
+    if team.hackathon.status != HackathonStatus.EVALUATION:
+        flash("Evaluation is not enabled for this hackathon yet.", "error")
+        return redirect(url_for('faculty.dashboard'))
 
     if team.hackathon.status == HackathonStatus.RESULT_PUBLISHED:
         flash("Evaluations are locked.", "error")
@@ -502,12 +520,13 @@ def evaluate_team(team_id):
             technical = int(request.form.get('technical_score'))
             uiux = int(request.form.get('uiux_score'))
             practicality = int(request.form.get('practicality_score'))
-            
-            if any(score < 0 or score > 10 for score in [innovation, technical, uiux, practicality]):
+            presentation = int(request.form.get('presentation_score'))
+
+            if any(score < 0 or score > 10 for score in [innovation, technical, uiux, practicality, presentation]):
                 raise ValueError("Scores must be 0-10")
-                
-            total_score = innovation + technical + uiux + practicality
-            
+
+            total_score = innovation + technical + uiux + practicality + presentation
+
             evaluation = Evaluation(
                 hackathon_id=team.hackathon_id,
                 team_id=team.id,
@@ -518,14 +537,129 @@ def evaluate_team(team_id):
                 technical_score=technical,
                 uiux_score=uiux,
                 practicality_score=practicality,
+                presentation_score=presentation,
                 total_score=total_score
             )
             db.session.add(evaluation)
             db.session.commit()
-            flash("Evaluation submitted")
+            flash("Evaluation submitted", "success")
             return redirect(url_for('faculty.evaluate_teams_list', hackathon_id=team.hackathon_id))
             
         except ValueError:
             flash("Invalid scores. Must be integers 0-10.", "error")
             
     return render_template('faculty/evaluate_form.html', team=team)
+
+
+@faculty_bp.route('/team-explorer')
+@faculty_required
+def team_explorer_page():
+    """
+    Faculty Team Explorer: view teams for hackathons they are assigned to.
+    Reuses the admin template but pre-filters hackathons server-side.
+    """
+    assignment_records = FacultyAssignment.query.filter_by(faculty_id=session['user_id']).all()
+    hackathon_ids = [a.hackathon_id for a in assignment_records]
+    hackathons = Hackathon.query.filter(Hackathon.id.in_(hackathon_ids)).order_by(Hackathon.start_date.desc().nullslast()).all() if hackathon_ids else []
+    return render_template('faculty/team_explorer.html', hackathons=hackathons)
+
+
+@faculty_bp.route('/hackathon/<int:hackathon_id>/teams')
+@faculty_required
+def hackathon_teams_api(hackathon_id):
+    """
+    API: GET /faculty/hackathon/<hackathon_id>/teams
+    Returns team data ONLY if the faculty is assigned to this hackathon.
+    Query params: page, per_page, search (same as admin).
+    """
+    # Enforce: faculty must be assigned to this hackathon
+    assignment = FacultyAssignment.query.filter_by(
+        hackathon_id=hackathon_id,
+        faculty_id=session['user_id'],
+    ).first()
+    if not assignment:
+        return jsonify({'error': 'Access denied: you are not assigned to this hackathon'}), 403
+
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '', type=str).strip()
+
+    teams_query = db.session.query(Team).filter(Team.hackathon_id == hackathon_id)
+
+    if search:
+        like_pattern = f'%{search}%'
+        matching_team_ids = (
+            db.session.query(TeamMember.team_id)
+            .join(User, TeamMember.user_id == User.id)
+            .join(Team, TeamMember.team_id == Team.id)
+            .filter(
+                Team.hackathon_id == hackathon_id,
+                db.or_(
+                    User.full_name.ilike(like_pattern),
+                    User.email.ilike(like_pattern),
+                    User.username.ilike(like_pattern),
+                    Team.name.ilike(like_pattern),
+                )
+            )
+            .distinct()
+            .subquery()
+        )
+        teams_query = teams_query.filter(Team.id.in_(db.session.query(matching_team_ids.c.team_id)))
+
+    total_teams_count = teams_query.count()
+
+    total_users_count = (
+        db.session.query(func.count(TeamMember.id))
+        .join(Team, TeamMember.team_id == Team.id)
+        .filter(Team.hackathon_id == hackathon_id)
+        .scalar()
+    ) or 0
+
+    paginated_teams = (
+        teams_query
+        .order_by(Team.name)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    teams_data = []
+    for team in paginated_teams:
+        members = (
+            db.session.query(TeamMember, User)
+            .join(User, TeamMember.user_id == User.id)
+            .filter(TeamMember.team_id == team.id)
+            .all()
+        )
+        member_list = []
+        for tm, user in members:
+            member_list.append({
+                'name': user.full_name or user.username,
+                'email': user.email,
+                'college': user.college or '—',
+                'registration_id': user.id,
+                'is_present': bool(user.is_present) if user.is_present is not None else False,
+            })
+
+        teams_data.append({
+            'team_id': team.id,
+            'team_name': team.name,
+            'member_count': len(member_list),
+            'is_closed': team.is_closed,
+            'members': member_list,
+        })
+
+    total_pages = max(1, -(-total_teams_count // per_page))
+
+    return jsonify({
+        'hackathon_id': hackathon.id,
+        'hackathon_name': hackathon.name,
+        'total_users': total_users_count,
+        'total_teams': total_teams_count,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': total_pages,
+        'teams': teams_data,
+    })

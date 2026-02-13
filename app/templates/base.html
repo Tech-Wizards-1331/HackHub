@@ -154,6 +154,7 @@
                             <div class="grid gap-1">
                                 {% if session.get('role') == 'admin' %}
                                     <a class="hh-btn justify-start" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                                    <a class="hh-btn justify-start" href="{{ url_for('admin.hackathon_teams_page') }}"><i class="bi bi-people-fill"></i> Team Explorer</a>
                                     <a class="hh-btn justify-start" href="{{ url_for('admin.create_hackathon') }}"><i class="bi bi-plus-circle"></i> Create Hackathon</a>
                                 {% elif session.get('role') == 'faculty' %}
                                     <a class="hh-btn justify-start" href="{{ url_for('faculty.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>

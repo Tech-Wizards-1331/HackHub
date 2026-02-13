@@ -9,7 +9,7 @@ def participant_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'participant':
-            flash('Participant access only')
+            flash('Participant access only', 'error')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function

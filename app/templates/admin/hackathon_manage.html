@@ -2,10 +2,13 @@
 {% block content %}
 {% set stages = [
     ('DRAFT', 'Draft', 'bi-pencil'),
-    ('REGISTRATION_OPEN', 'Registration', 'bi-unlock'),
+    ('REGISTRATION_OPEN', 'Registration Open', 'bi-unlock'),
+    ('REGISTRATION_CLOSED', 'Registration Closed', 'bi-lock'),
     ('PROBLEM_SELECTION', 'Problem Selection', 'bi-list-check'),
+    ('ONGOING', 'Ongoing', 'bi-play-circle'),
     ('EVALUATION', 'Evaluation', 'bi-clipboard-data'),
-    ('RESULT_PUBLISHED', 'Results', 'bi-megaphone')
+    ('RESULT_PUBLISHED', 'Results Published', 'bi-megaphone'),
+    ('ARCHIVED', 'Archived', 'bi-archive')
 ] %}
 
 <div class="flex flex-col gap-4">
@@ -183,14 +186,12 @@
                             input.value = '';
                         }
                     });
-                    
+
                     totalBadge.textContent = 'Total: ' + total + '%';
                     if (Math.abs(total - 100) < 0.1) {
-                        totalBadge.classList.remove('bg-secondary', 'bg-danger');
-                        totalBadge.classList.add('bg-success');
+                        totalBadge.className = 'hh-badge hh-badge--success';
                     } else {
-                        totalBadge.classList.remove('bg-secondary', 'bg-success');
-                        totalBadge.classList.add('bg-danger');
+                        totalBadge.className = 'hh-badge hh-badge--danger';
                     }
                     return total;
                 }
@@ -257,7 +258,7 @@
                     })
                     .finally(() => {
                         saveBtn.disabled = false;
-                        saveBtn.textContent = 'Save Configuration';
+                        saveBtn.innerHTML = '<i class="bi bi-save me-1"></i> Save Configuration';
                     });
                 });
             });

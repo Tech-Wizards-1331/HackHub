@@ -129,6 +129,18 @@ class TeamJoinRequest(db.Model):
     user = db.relationship('User', foreign_keys=[user_id], backref='team_join_requests')
     requested_by = db.relationship('User', foreign_keys=[requested_by_id])
 
+class TeamVisibility(db.Model):
+    __tablename__ = 'team_visibility'
+    id = db.Column(db.Integer, primary_key=True)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('hackathon_id', 'user_id', name='uq_hackathon_user_visibility'),
+    )
+
 class Evaluation(db.Model):
     __tablename__ = 'evaluations'
     id = db.Column(db.Integer, primary_key=True)
@@ -218,6 +230,33 @@ class MealScan(db.Model):
         db.Index('ix_meal_scans_team_id', 'team_id'),
         db.Index('ix_meal_scans_meal_type', 'meal_type'),
         db.Index('ix_meal_scans_hackathon_team_meal', 'hackathon_id', 'team_id', 'meal_type'),
+    )
+
+
+class TeamRosterMember(db.Model):
+    __tablename__ = 'team_roster_members'
+    id = db.Column(db.Integer, primary_key=True)
+
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), nullable=False)
+    hackathon_id = db.Column(db.Integer, db.ForeignKey('hackathons.id'), nullable=False)
+
+    full_name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    university_name = db.Column(db.String(150), nullable=False)
+    experience_level = db.Column(db.String(20), nullable=False)  # Beginner / Intern / Expert
+    skills = db.Column(db.Text, nullable=False)  # Comma-separated
+
+    is_leader = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    team = db.relationship('Team', backref='roster_members')
+    hackathon = db.relationship('Hackathon', backref='team_rosters')
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'email', name='uq_team_roster_email'),
+        db.Index('ix_team_roster_hackathon_id', 'hackathon_id'),
+        db.Index('ix_team_roster_team_id', 'team_id'),
+        db.Index('ix_team_roster_email', 'email'),
     )
 
 

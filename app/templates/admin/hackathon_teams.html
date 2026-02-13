@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex flex-col gap-6">
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="hh-badge hh-badge--info"><i class="bi bi-people-fill"></i> Teams</span>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-bar-chart-steps"></i> Explorer</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Hackathon Team Explorer</h1>
+            <p class="hh-muted mt-1">Browse teams and members for any hackathon. View analytics at a glance.</p>
+        </div>
+        <a href="{{ url_for('admin.dashboard') }}" class="hh-btn"><i class="bi bi-arrow-left"></i> Dashboard</a>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="hh-card p-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <!-- Hackathon Selector -->
+            <div>
+                <label class="text-xs hh-muted uppercase tracking-widest mb-1 block" for="ht-hackathon-select">Select Hackathon</label>
+                <select id="ht-hackathon-select" class="form-select w-full">
+                    <option value="">— Choose a hackathon —</option>
+                    {% for h in hackathons %}
+                    <option value="{{ h.id }}">{{ h.name }} (ID: {{ h.id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Search -->
+            <div>
+                <label class="text-xs hh-muted uppercase tracking-widest mb-1 block" for="ht-search">Search by Name / Email / Team</label>
+                <div class="relative">
+                    <input id="ht-search" type="text" class="form-control w-full pl-10" placeholder="Type to search…" autocomplete="off" />
+                    <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 hh-muted pointer-events-none"></i>
+                </div>
+            </div>
+            <!-- Per-Page -->
+            <div>
+                <label class="text-xs hh-muted uppercase tracking-widest mb-1 block" for="ht-perpage">Teams per page</label>
+                <select id="ht-perpage" class="form-select w-full">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Summary (hidden until loaded) -->
+    <div id="ht-kpi-row" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" style="display:none;">
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Total Users</div>
+                    <div class="text-2xl font-semibold mt-1" id="ht-kpi-users">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.25);">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Registered in this hackathon</div>
+        </div>
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Total Teams</div>
+                    <div class="text-2xl font-semibold mt-1" id="ht-kpi-teams">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25);">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Formed teams</div>
+        </div>
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Avg Team Size</div>
+                    <div class="text-2xl font-semibold mt-1" id="ht-kpi-avg">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25);">
+                    <i class="bi bi-bar-chart-fill"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Members per team</div>
+        </div>
+        <div class="hh-card hh-card-hover p-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-sm hh-muted">Attendance Rate</div>
+                    <div class="text-2xl font-semibold mt-1" id="ht-kpi-attendance">—</div>
+                </div>
+                <div class="w-10 h-10 rounded-2xl flex items-center justify-center" style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25);">
+                    <i class="bi bi-check2-circle"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-sm hh-muted">Overall present %</div>
+        </div>
+    </div>
+
+    <!-- Analytics Section (hidden until loaded) -->
+    <div id="ht-analytics-section" style="display:none;">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <!-- Pie Chart: Teams Distribution -->
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Distribution</div>
+                        <h2 class="text-lg font-semibold">Team Size Breakdown</h2>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-pie-chart-fill"></i></span>
+                </div>
+                <div class="relative" style="height: 260px;">
+                    <canvas id="ht-chart-pie"></canvas>
+                </div>
+            </div>
+            <!-- Bar Chart: Users per Team -->
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Comparison</div>
+                        <h2 class="text-lg font-semibold">Members per Team</h2>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-bar-chart-fill"></i></span>
+                </div>
+                <div class="relative" style="height: 260px;">
+                    <canvas id="ht-chart-bar"></canvas>
+                </div>
+            </div>
+            <!-- Bar Chart: Attendance % per Team -->
+            <div class="hh-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-sm hh-muted">Attendance</div>
+                        <h2 class="text-lg font-semibold">Attendance % per Team</h2>
+                    </div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-check2-all"></i></span>
+                </div>
+                <div class="relative" style="height: 260px;">
+                    <canvas id="ht-chart-attendance"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teams Accordion Container -->
+    <div id="ht-teams-container">
+        <div class="hh-card p-6 text-center hh-muted">
+            <i class="bi bi-arrow-up-circle text-3xl mb-2 block"></i>
+            <p>Select a hackathon above to load teams.</p>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="ht-pagination" class="flex flex-wrap items-center justify-center gap-2" style="display:none;"></div>
+
+    <!-- Loading Overlay -->
+    <div id="ht-loading" style="display:none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div class="hh-card p-6 flex items-center gap-3">
+            <div class="animate-spin w-6 h-6 border-2 border-[var(--hh-accent)] border-t-transparent rounded-full"></div>
+            <span class="font-medium">Loading teams…</span>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+(() => {
+    /* ── DOM refs ── */
+    const selectHackathon = document.getElementById('ht-hackathon-select');
+    const searchInput     = document.getElementById('ht-search');
+    const perPageSelect   = document.getElementById('ht-perpage');
+    const kpiRow          = document.getElementById('ht-kpi-row');
+    const analyticsSection= document.getElementById('ht-analytics-section');
+    const teamsContainer  = document.getElementById('ht-teams-container');
+    const paginationEl    = document.getElementById('ht-pagination');
+    const loadingEl       = document.getElementById('ht-loading');
+
+    /* KPI elements */
+    const kpiUsers      = document.getElementById('ht-kpi-users');
+    const kpiTeams      = document.getElementById('ht-kpi-teams');
+    const kpiAvg        = document.getElementById('ht-kpi-avg');
+    const kpiAttendance = document.getElementById('ht-kpi-attendance');
+
+    /* ── Chart instances ── */
+    let pieChart = null, barChart = null, attendanceChart = null;
+
+    /* ── Palette ── */
+    const palette = [
+        'rgba(124,58,237,0.85)', 'rgba(34,197,94,0.85)', 'rgba(56,189,248,0.85)',
+        'rgba(245,158,11,0.85)', 'rgba(239,68,68,0.85)', 'rgba(168,85,247,0.85)',
+        'rgba(20,184,166,0.85)', 'rgba(251,146,60,0.85)', 'rgba(99,102,241,0.85)',
+        'rgba(236,72,153,0.85)', 'rgba(132,204,22,0.85)', 'rgba(14,165,233,0.85)',
+    ];
+
+    const chartTextColor = 'rgba(229,231,235,0.9)';
+    const chartGridColor = 'rgba(255,255,255,0.08)';
+
+    /* ── State ── */
+    let currentPage = 1;
+    let allTeamsCache = [];  // full dataset for charts (first unpaginated load)
+
+    /* ── Debounce helper ── */
+    let searchTimer = null;
+    function debounce(fn, ms) {
+        return (...args) => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => fn(...args), ms);
+        };
+    }
+
+    /* ── Fetch teams ── */
+    async function fetchTeams(hackathonId, page, perPage, search) {
+        const params = new URLSearchParams({ page, per_page: perPage });
+        if (search) params.set('search', search);
+        const url = `/admin/hackathon/${hackathonId}/teams?${params}`;
+        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return resp.json();
+    }
+
+    /* ── Load & Render ── */
+    async function load(page = 1) {
+        const hid = selectHackathon.value;
+        if (!hid) return;
+
+        currentPage = page;
+        const perPage = parseInt(perPageSelect.value, 10);
+        const search = searchInput.value.trim();
+
+        loadingEl.style.display = 'flex';
+        try {
+            const data = await fetchTeams(hid, page, perPage, search);
+            renderKPI(data);
+            renderTeams(data.teams);
+            renderPagination(data.page, data.total_pages);
+
+            // Load ALL teams (unpaginated) for charts on first load / hackathon switch
+            if (page === 1 && !search) {
+                const full = await fetchTeams(hid, 1, 9999, '');
+                allTeamsCache = full.teams || [];
+                renderCharts(allTeamsCache);
+            }
+        } catch (err) {
+            teamsContainer.innerHTML = `
+                <div class="hh-card p-6 text-center" style="color: var(--hh-error, #ef4444);">
+                    <i class="bi bi-exclamation-triangle text-3xl mb-2 block"></i>
+                    <p>Failed to load teams. ${err.message}</p>
+                </div>`;
+        } finally {
+            loadingEl.style.display = 'none';
+        }
+    }
+
+    /* ── KPI ── */
+    function renderKPI(data) {
+        kpiRow.style.display = '';
+        kpiUsers.textContent = data.total_users;
+        kpiTeams.textContent = data.total_teams;
+        const avg = data.total_teams > 0 ? (data.total_users / data.total_teams).toFixed(1) : '0';
+        kpiAvg.textContent = avg;
+
+        // overall attendance from cached teams
+        let totalMembers = 0, totalPresent = 0;
+        for (const t of (allTeamsCache.length ? allTeamsCache : data.teams)) {
+            for (const m of t.members) {
+                totalMembers++;
+                if (m.is_present) totalPresent++;
+            }
+        }
+        const pct = totalMembers > 0 ? ((totalPresent / totalMembers) * 100).toFixed(1) : '0';
+        kpiAttendance.textContent = `${pct}%`;
+    }
+
+    /* ── Teams Accordion ── */
+    function renderTeams(teams) {
+        if (!teams.length) {
+            teamsContainer.innerHTML = `
+                <div class="hh-card p-6 text-center hh-muted">
+                    <i class="bi bi-inbox text-3xl mb-2 block"></i>
+                    <p>No teams found.</p>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        teams.forEach((team, idx) => {
+            const presentCount = team.members.filter(m => m.is_present).length;
+            const attendPct = team.member_count > 0 ? ((presentCount / team.member_count) * 100).toFixed(0) : 0;
+
+            html += `
+            <div class="hh-card mb-3 overflow-hidden ht-team-card" data-team-idx="${idx}">
+                <!-- Accordion Header -->
+                <button class="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:opacity-80 transition-opacity ht-accordion-toggle" type="button" aria-expanded="false" data-target="ht-team-body-${idx}">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background: ${palette[idx % palette.length].replace('0.85', '0.18')}; border: 1px solid ${palette[idx % palette.length].replace('0.85', '0.30')};">
+                            <i class="bi bi-people-fill" style="color: ${palette[idx % palette.length]};"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-semibold truncate">${escHtml(team.team_name)}</div>
+                            <div class="text-sm hh-muted">${team.member_count} member${team.member_count !== 1 ? 's' : ''} · Attendance: ${attendPct}%</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        ${team.is_closed ? '<span class="hh-badge hh-badge--warn text-xs">Locked</span>' : '<span class="hh-badge hh-badge--success text-xs">Open</span>'}
+                        <i class="bi bi-chevron-down transition-transform duration-200 ht-chevron"></i>
+                    </div>
+                </button>
+
+                <!-- Accordion Body -->
+                <div id="ht-team-body-${idx}" class="ht-accordion-body" style="display:none;">
+                    <div class="border-t" style="border-color: var(--hh-border);"></div>
+                    <div class="p-4 overflow-auto">
+                        <table class="hh-table w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>College</th>
+                                    <th>Reg ID</th>
+                                    <th>Attendance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${team.members.map((m, mi) => `
+                                <tr>
+                                    <td>${mi + 1}</td>
+                                    <td class="font-medium">${escHtml(m.name)}</td>
+                                    <td><span class="hh-muted">${escHtml(m.email)}</span></td>
+                                    <td>${escHtml(m.college)}</td>
+                                    <td><span class="hh-badge hh-badge--neutral text-xs">#${m.registration_id}</span></td>
+                                    <td>
+                                        ${m.is_present
+                                            ? '<span class="hh-badge hh-badge--success text-xs"><i class="bi bi-check-circle-fill me-1"></i>Present</span>'
+                                            : '<span class="hh-badge hh-badge--neutral text-xs"><i class="bi bi-dash-circle me-1"></i>Absent</span>'}
+                                    </td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        teamsContainer.innerHTML = html;
+
+        // Accordion toggle logic
+        teamsContainer.querySelectorAll('.ht-accordion-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.getAttribute('data-target');
+                const body = document.getElementById(targetId);
+                const chevron = btn.querySelector('.ht-chevron');
+                const isOpen = body.style.display !== 'none';
+                body.style.display = isOpen ? 'none' : '';
+                btn.setAttribute('aria-expanded', !isOpen);
+                chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+            });
+        });
+    }
+
+    /* ── Pagination ── */
+    function renderPagination(current, total) {
+        if (total <= 1) { paginationEl.style.display = 'none'; return; }
+        paginationEl.style.display = '';
+        let html = '';
+
+        // Prev
+        html += `<button class="hh-btn${current <= 1 ? ' opacity-40 pointer-events-none' : ''}" data-page="${current - 1}"><i class="bi bi-chevron-left"></i></button>`;
+
+        // Page buttons
+        const range = buildPageRange(current, total);
+        range.forEach(p => {
+            if (p === '…') {
+                html += `<span class="hh-muted px-2">…</span>`;
+            } else {
+                html += `<button class="hh-btn${p === current ? ' hh-btn-primary' : ''}" data-page="${p}">${p}</button>`;
+            }
+        });
+
+        // Next
+        html += `<button class="hh-btn${current >= total ? ' opacity-40 pointer-events-none' : ''}" data-page="${current + 1}"><i class="bi bi-chevron-right"></i></button>`;
+
+        paginationEl.innerHTML = html;
+        paginationEl.querySelectorAll('[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = parseInt(btn.dataset.page, 10);
+                if (p >= 1 && p <= total) load(p);
+            });
+        });
+    }
+
+    function buildPageRange(current, total) {
+        const delta = 2;
+        const range = [];
+        for (let i = Math.max(2, current - delta); i <= Math.min(total - 1, current + delta); i++) range.push(i);
+        if (range[0] > 2) range.unshift('…');
+        if (range[range.length - 1] < total - 1) range.push('…');
+        range.unshift(1);
+        if (total > 1) range.push(total);
+        return range;
+    }
+
+    /* ── Charts ── */
+    function renderCharts(teams) {
+        analyticsSection.style.display = '';
+        if (!window.Chart || !teams.length) { analyticsSection.style.display = 'none'; return; }
+
+        const labels = teams.map(t => t.team_name.length > 16 ? t.team_name.slice(0, 15) + '…' : t.team_name);
+        const memberCounts = teams.map(t => t.member_count);
+        const attendancePcts = teams.map(t => {
+            const present = t.members.filter(m => m.is_present).length;
+            return t.member_count > 0 ? Math.round((present / t.member_count) * 100) : 0;
+        });
+
+        const bgColors = teams.map((_, i) => palette[i % palette.length]);
+        const borderColors = bgColors.map(c => c.replace('0.85', '1'));
+
+        // Detect theme
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const txtColor = isLight ? 'rgba(15,23,42,0.85)' : chartTextColor;
+        const gridClr  = isLight ? 'rgba(0,0,0,0.08)' : chartGridColor;
+
+        const baseOpts = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: txtColor, boxWidth: 12, padding: 10 } },
+                tooltip: {
+                    backgroundColor: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(2,6,23,0.92)',
+                    titleColor: txtColor, bodyColor: txtColor,
+                    borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.10)', borderWidth: 1
+                }
+            }
+        };
+
+        // ── Pie: Team size breakdown ──
+        if (pieChart) pieChart.destroy();
+        pieChart = new Chart(document.getElementById('ht-chart-pie'), {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data: memberCounts, backgroundColor: bgColors, borderColor: borderColors, borderWidth: 1 }]
+            },
+            options: {
+                ...baseOpts,
+                cutout: '55%',
+                plugins: {
+                    ...baseOpts.plugins,
+                    legend: { ...baseOpts.plugins.legend, position: 'bottom', labels: { ...baseOpts.plugins.legend.labels, font: { size: 11 } } }
+                }
+            }
+        });
+
+        // ── Bar: Members per team ──
+        if (barChart) barChart.destroy();
+        barChart = new Chart(document.getElementById('ht-chart-bar'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Members',
+                    data: memberCounts,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    maxBarThickness: 40,
+                }]
+            },
+            options: {
+                ...baseOpts,
+                plugins: { ...baseOpts.plugins, legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridClr }, ticks: { color: txtColor, maxRotation: 45, font: { size: 10 } } },
+                    y: { grid: { color: gridClr }, ticks: { color: txtColor }, beginAtZero: true }
+                }
+            }
+        });
+
+        // ── Bar: Attendance % per team ──
+        if (attendanceChart) attendanceChart.destroy();
+        attendanceChart = new Chart(document.getElementById('ht-chart-attendance'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: attendancePcts,
+                    backgroundColor: attendancePcts.map(v => v >= 75 ? 'rgba(34,197,94,0.8)' : v >= 50 ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)'),
+                    borderRadius: 6,
+                    maxBarThickness: 40,
+                }]
+            },
+            options: {
+                ...baseOpts,
+                indexAxis: 'y',
+                plugins: { ...baseOpts.plugins, legend: { display: false } },
+                scales: {
+                    x: { grid: { color: gridClr }, ticks: { color: txtColor, callback: v => v + '%' }, min: 0, max: 100 },
+                    y: { grid: { color: gridClr }, ticks: { color: txtColor, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    /* ── Helpers ── */
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
+    }
+
+    /* ── Event Bindings ── */
+    selectHackathon.addEventListener('change', () => {
+        allTeamsCache = [];
+        currentPage = 1;
+        searchInput.value = '';
+        load(1);
+    });
+
+    searchInput.addEventListener('input', debounce(() => {
+        currentPage = 1;
+        load(1);
+    }, 350));
+
+    perPageSelect.addEventListener('change', () => {
+        currentPage = 1;
+        load(1);
+    });
+})();
+</script>
+
+<style>
+    /* Accordion animation */
+    .ht-accordion-body { transition: none; }
+    .ht-team-card { transition: box-shadow 0.15s ease; }
+    .ht-team-card:hover { box-shadow: 0 0 0 1px var(--hh-accent), var(--hh-shadow-soft); }
+    .ht-chevron { transition: transform 0.2s ease; }
+
+    /* Table readability */
+    .ht-team-card .hh-table th { white-space: nowrap; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .ht-team-card .hh-table td { vertical-align: middle; }
+
+    /* Responsive: stack table on small screens */
+    @media (max-width: 768px) {
+        .ht-team-card .hh-table thead { display: none; }
+        .ht-team-card .hh-table tr { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--hh-border); }
+        .ht-team-card .hh-table td { border: none !important; padding: 0 !important; font-size: 0.82rem; }
+        .ht-team-card .hh-table td:first-child { display: none; }
+    }
+</style>
+{% endblock %}

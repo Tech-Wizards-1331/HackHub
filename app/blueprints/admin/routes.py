@@ -1,11 +1,16 @@
-from flask import render_template, request, redirect, url_for, flash, session, current_app
+from flask import render_template, request, redirect, url_for, flash, session, current_app, jsonify
 from . import admin_bp
 from app.extensions import db
-from app.models import Hackathon, HackathonStatus, ProblemStatement, Evaluation, EvaluationCriteria, User, UserRole, FacultyAssignment, ScanLog
+from app.models import (
+    Hackathon, HackathonStatus, ProblemStatement, Evaluation,
+    EvaluationCriteria, User, UserRole, FacultyAssignment, ScanLog,
+    Team, TeamMember
+)
 from app.utils.problem_selection import auto_assign_problems
 from functools import wraps
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from sqlalchemy import func
 import os
 import uuid
 
@@ -17,7 +22,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'admin':
-            flash('Admin access only')
+            flash('Admin access only', 'error')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -33,21 +38,18 @@ def dashboard():
         }
     
     # --- Scan Statistics ---
-    total_participants = User.query.filter_by(role=UserRole.PARTICIPANT).count()
-    if total_participants == 0:
-        total_participants = 1 # Avoid division by zero
+    real_participant_count = User.query.filter_by(role=UserRole.PARTICIPANT).count()
+    total_participants = real_participant_count if real_participant_count > 0 else 1
 
-    # Get counts for today or all time? Assuming all time for now or latest active hackathon.
-    # But ScanLog is general. 
     scan_counts = {
         'ENTRY': ScanLog.query.filter_by(access_type='ENTRY').count(),
         'BREAKFAST': ScanLog.query.filter_by(access_type='BREAKFAST').count(),
         'LUNCH': ScanLog.query.filter_by(access_type='LUNCH').count(),
         'DINNER': ScanLog.query.filter_by(access_type='DINNER').count(),
     }
-    
+
     scan_stats = {
-        'total_participants': total_participants if total_participants > 1 else User.query.filter_by(role=UserRole.PARTICIPANT).count(),
+        'total_participants': real_participant_count,
         'counts': scan_counts,
         'percentages': {
             'ENTRY': round((scan_counts['ENTRY'] / total_participants) * 100, 1),
@@ -65,6 +67,7 @@ def create_hackathon():
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
+        venue = request.form.get('venue', '').strip()
         max_teams = request.form.get('max_teams')
         min_team_size = request.form.get('min_team_size')
         max_team_size = request.form.get('max_team_size')
@@ -86,8 +89,9 @@ def create_hackathon():
         dinner_time = request.form.get('dinner_time', '')        # e.g., "18:00"
         
         hackathon = Hackathon(
-            name=name, 
+            name=name,
             description=description,
+            venue=venue if venue else None,
             max_teams=max_teams,
             min_team_size=min_team_size,
             max_team_size=max_team_size,
@@ -102,7 +106,7 @@ def create_hackathon():
         )
         db.session.add(hackathon)
         db.session.commit()
-        flash('Hackathon created')
+        flash('Hackathon created', 'success')
         return redirect(url_for('admin.dashboard'))
     return render_template('admin/hackathon_create.html')
 
@@ -138,7 +142,7 @@ def manage_hackathon(id):
         elif status_str:
             hackathon.status = HackathonStatus[status_str]
             db.session.commit()
-            flash('Status updated')
+            flash('Status updated', 'success')
     
     # Fetch current criteria configuration
     current_criteria = EvaluationCriteria.query.filter_by(hackathon_id=id).all()
@@ -154,7 +158,7 @@ def upload_problem_statement(id):
     hackathon = Hackathon.query.get_or_404(id)
     
     if 'pdf_file' not in request.files:
-        flash('No file part')
+        flash('No file part', 'error')
         return redirect(url_for('admin.manage_hackathon', id=id))
         
     file = request.files['pdf_file']
@@ -162,7 +166,7 @@ def upload_problem_statement(id):
     max_teams = request.form.get('max_teams', 50) # default or form value
     
     if file.filename == '':
-        flash('No selected file')
+        flash('No selected file', 'error')
         return redirect(url_for('admin.manage_hackathon', id=id))
         
     if file and allowed_file(file.filename):
@@ -190,9 +194,9 @@ def upload_problem_statement(id):
         
         db.session.add(problem)
         db.session.commit()
-        flash('Problem Statement uploaded successfully')
+        flash('Problem Statement uploaded successfully', 'success')
     else:
-        flash('Invalid file type. Only PDF allowed.')
+        flash('Invalid file type. Only PDF allowed.', 'error')
         
     return redirect(url_for('admin.manage_hackathon', id=id))
 
@@ -364,3 +368,117 @@ def remove_faculty_assignment(hackathon_id, faculty_id):
     db.session.commit()
     
     return {'status': 'success', 'message': 'Faculty unassigned successfully'}
+
+
+# ─── Hackathon Teams Explorer ───────────────────────────────────────────────
+
+@admin_bp.route('/hackathon-teams')
+@admin_required
+def hackathon_teams_page():
+    """Render the hackathon teams explorer page."""
+    hackathons = Hackathon.query.order_by(Hackathon.id.desc()).all()
+    return render_template('admin/hackathon_teams.html', hackathons=hackathons)
+
+
+@admin_bp.route('/hackathon/<int:hackathon_id>/teams')
+@admin_required
+def hackathon_teams_api(hackathon_id):
+    """
+    API: GET /admin/hackathon/<hackathon_id>/teams
+    Returns team-wise grouped participant data with pagination and search.
+    Query params:
+        page (int)   – page number (default 1)
+        per_page (int) – teams per page (default 20)
+        search (str) – filter by member name or email
+    """
+    hackathon = Hackathon.query.get_or_404(hackathon_id)
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '', type=str).strip()
+
+    # Base query: teams belonging to the selected hackathon
+    teams_query = (
+        db.session.query(Team)
+        .filter(Team.hackathon_id == hackathon_id)
+    )
+
+    # If search term: only include teams that have at least one matching member
+    if search:
+        like_pattern = f'%{search}%'
+        matching_team_ids = (
+            db.session.query(TeamMember.team_id)
+            .join(User, TeamMember.user_id == User.id)
+            .join(Team, TeamMember.team_id == Team.id)
+            .filter(
+                Team.hackathon_id == hackathon_id,
+                db.or_(
+                    User.full_name.ilike(like_pattern),
+                    User.email.ilike(like_pattern),
+                    User.username.ilike(like_pattern),
+                    Team.name.ilike(like_pattern),
+                )
+            )
+            .distinct()
+            .subquery()
+        )
+        teams_query = teams_query.filter(Team.id.in_(db.session.query(matching_team_ids.c.team_id)))
+
+    total_teams_count = teams_query.count()
+
+    # Total registered users across all teams in this hackathon
+    total_users_count = (
+        db.session.query(func.count(TeamMember.id))
+        .join(Team, TeamMember.team_id == Team.id)
+        .filter(Team.hackathon_id == hackathon_id)
+        .scalar()
+    ) or 0
+
+    # Pagination
+    paginated_teams = (
+        teams_query
+        .order_by(Team.name)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    # Build response with eager-loaded members
+    teams_data = []
+    for team in paginated_teams:
+        members = (
+            db.session.query(TeamMember, User)
+            .join(User, TeamMember.user_id == User.id)
+            .filter(TeamMember.team_id == team.id)
+            .all()
+        )
+        member_list = []
+        for tm, user in members:
+            member_list.append({
+                'name': user.full_name or user.username,
+                'email': user.email,
+                'college': user.college or '—',
+                'registration_id': user.id,
+                'is_present': bool(user.is_present) if user.is_present is not None else False,
+            })
+
+        teams_data.append({
+            'team_id': team.id,
+            'team_name': team.name,
+            'member_count': len(member_list),
+            'is_closed': team.is_closed,
+            'members': member_list,
+        })
+
+    total_pages = max(1, -(-total_teams_count // per_page))  # ceil division
+
+    return jsonify({
+        'hackathon_id': hackathon.id,
+        'hackathon_name': hackathon.name,
+        'total_users': total_users_count,
+        'total_teams': total_teams_count,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': total_pages,
+        'teams': teams_data,
+    })

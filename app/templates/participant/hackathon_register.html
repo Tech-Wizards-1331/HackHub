@@ -33,13 +33,62 @@
                 </div>
             </div>
             <div class="p-4">
-                <form method="POST" onsubmit="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Creating team…', 'info') : null">
+                <form method="POST" id="hh-create-team-form" onsubmit="(window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Creating team…', 'info') : null">
                     <input type="hidden" name="action" value="create_team">
                     <div class="mb-3">
                         <label class="hh-muted text-sm">Team name</label>
                         <input type="text" name="team_name" class="hh-input mt-2" placeholder="e.g., Neon Pioneers" required>
                         <div class="hh-muted text-sm mt-2">Tip: keep it short and memorable.</div>
                     </div>
+
+                    <!-- Add Members (extended flow; leader is prefilled) -->
+                    <div class="mt-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <div>
+                                <div class="text-sm hh-muted">Add Members</div>
+                                <div class="font-semibold">Team roster (1–5 members)</div>
+                                <div class="text-sm hh-muted mt-1">Leader is included automatically. Add up to 4 more members.</div>
+                            </div>
+                            <button type="button" class="hh-btn" id="hh-add-member-btn"><i class="bi bi-plus-lg"></i> Add Member</button>
+                        </div>
+
+                        <!-- Leader (prefilled, read-only) -->
+                        <div class="hh-card p-3 mt-3" style="background: rgba(255,255,255,0.04);">
+                            <div class="flex items-center justify-between">
+                                <div class="font-medium"><i class="bi bi-star-fill me-2"></i>Leader</div>
+                                <span class="hh-badge hh-badge--neutral text-xs">Auto-filled</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                <div>
+                                    <div class="text-xs hh-muted uppercase tracking-widest">Full Name</div>
+                                    <div class="mt-1">{{ (leader_profile.full_name if leader_profile else session.get('username', '')) }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs hh-muted uppercase tracking-widest">Email</div>
+                                    <div class="mt-1">{{ (leader_profile.email if leader_profile else '(from your account)') }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs hh-muted uppercase tracking-widest">University Name</div>
+                                    <div class="mt-1">{{ (leader_profile.university_name if leader_profile else '') }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs hh-muted uppercase tracking-widest">Experience Level</div>
+                                    <div class="mt-1">{{ (leader_profile.experience_level if leader_profile else '') }}</div>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <div class="text-xs hh-muted uppercase tracking-widest">Skills</div>
+                                    <div class="mt-1">{{ (leader_profile.skills if leader_profile else '') }}</div>
+                                </div>
+                            </div>
+                            <div class="hh-muted text-xs mt-3">Leader details are taken from your account profile (Full Name, Email, University, Experience Level, Skills).</div>
+                        </div>
+
+                        <!-- Dynamic members container -->
+                        <div id="hh-members-container" class="grid gap-3 mt-3"></div>
+
+                        <div class="hh-muted text-xs mt-2" id="hh-members-hint">All fields are required for each added member. Emails must be unique.</div>
+                    </div>
+
                     <button type="submit" class="hh-btn hh-btn-primary">
                         <i class="bi bi-check2-circle"></i> Create & Register
                     </button>
@@ -124,6 +173,131 @@
 </div>
 
 <script>
+(() => {
+    const form = document.getElementById('hh-create-team-form');
+    const container = document.getElementById('hh-members-container');
+    const addBtn = document.getElementById('hh-add-member-btn');
+    if (!form || !container || !addBtn) return;
+
+    const MAX_TOTAL = 5; // including leader
+    const MAX_ADDITIONAL = 4;
+
+    const expOptions = ['Beginner', 'Intern', 'Expert'];
+    const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+    function memberCount() {
+        return container.querySelectorAll('[data-member-row]').length;
+    }
+
+    function canAddMore() {
+        return memberCount() < MAX_ADDITIONAL;
+    }
+
+    function renderAddBtnState() {
+        addBtn.disabled = !canAddMore();
+        addBtn.classList.toggle('opacity-50', !canAddMore());
+    }
+
+    function makeMemberRow(index) {
+        const row = document.createElement('div');
+        row.className = 'hh-card p-3';
+        row.style.background = 'rgba(255,255,255,0.04)';
+        row.setAttribute('data-member-row', '1');
+
+        row.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+                <div class="font-medium">Member ${index + 1}</div>
+                <button type="button" class="hh-btn" data-remove-member><i class="bi bi-trash"></i> Remove</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div>
+                    <label class="text-xs hh-muted uppercase tracking-widest mb-1 block">Full Name</label>
+                    <input type="text" name="members_full_name[]" class="form-control" required placeholder="Full name" />
+                </div>
+                <div>
+                    <label class="text-xs hh-muted uppercase tracking-widest mb-1 block">Email Address</label>
+                    <input type="email" name="members_email[]" class="form-control" required placeholder="name@example.com" />
+                </div>
+                <div>
+                    <label class="text-xs hh-muted uppercase tracking-widest mb-1 block">University Name</label>
+                    <input type="text" name="members_university[]" class="form-control" required placeholder="University" />
+                </div>
+                <div>
+                    <label class="text-xs hh-muted uppercase tracking-widest mb-1 block">Experience Level</label>
+                    <select name="members_experience[]" class="form-select" required>
+                        <option value="" selected disabled>Select experience</option>
+                        ${expOptions.map(v => `<option value="${v}">${v}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs hh-muted uppercase tracking-widest mb-1 block">Skills</label>
+                    <input type="text" name="members_skills[]" class="form-control" required placeholder="e.g., Python, React, UI/UX" />
+                </div>
+            </div>
+        `;
+
+        row.querySelector('[data-remove-member]').addEventListener('click', () => {
+            row.remove();
+            renumber();
+            renderAddBtnState();
+        });
+
+        return row;
+    }
+
+    function renumber() {
+        const rows = container.querySelectorAll('[data-member-row]');
+        rows.forEach((r, i) => {
+            const title = r.querySelector('.font-medium');
+            if (title) title.textContent = `Member ${i + 1}`;
+        });
+    }
+
+    function getEmails() {
+        const emails = [];
+        container.querySelectorAll('input[name="members_email[]"]').forEach(inp => {
+            const val = (inp.value || '').trim().toLowerCase();
+            if (val) emails.push(val);
+        });
+        return emails;
+    }
+
+    addBtn.addEventListener('click', () => {
+        if (!canAddMore()) return;
+        const row = makeMemberRow(memberCount());
+        container.appendChild(row);
+        renderAddBtnState();
+    });
+
+    form.addEventListener('submit', (e) => {
+        // Validate unique + valid emails for the added members.
+        const emails = getEmails();
+        const seen = new Set();
+        for (const em of emails) {
+            if (!emailRe.test(em)) {
+                e.preventDefault();
+                (window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Please enter valid email addresses for all added members.', 'warning') : alert('Please enter valid email addresses for all added members.');
+                return;
+            }
+            if (seen.has(em)) {
+                e.preventDefault();
+                (window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Each member email must be unique.', 'warning') : alert('Each member email must be unique.');
+                return;
+            }
+            seen.add(em);
+        }
+
+        // Enforce total max (leader + additional)
+        if ((emails.length + 1) > MAX_TOTAL) {
+            e.preventDefault();
+            (window.HackHubUI && HackHubUI.toast) ? HackHubUI.toast('Maximum 5 members allowed (including the leader).', 'warning') : alert('Maximum 5 members allowed (including the leader).');
+            return;
+        }
+    });
+
+    renderAddBtnState();
+})();
+
 const form = document.querySelector('#soloModal form');
 if (form) {
     form.addEventListener('submit', function(e) {
