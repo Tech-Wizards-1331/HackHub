@@ -109,7 +109,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Team Meal Allocation</h5>
+                <h5 class="modal-title" id="allocationModalTitle">Team Meal Allocation</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -119,11 +119,13 @@
                     <div><strong>Already taken:</strong> <span id="mealModalTaken">0</span></div>
                     <div><strong>Remaining:</strong> <span id="mealModalRemaining">0</span></div>
                 </div>
-                <label class="form-label" for="mealTypeSelect">Meal Type</label>
-                <select class="form-select mb-3" id="mealTypeSelect"></select>
-                <label class="form-label" for="requestedCountInput">Members taking meal now</label>
+                <div id="mealTypeRow">
+                    <label class="form-label" for="mealTypeSelect">Meal Type</label>
+                    <select class="form-select mb-3" id="mealTypeSelect"></select>
+                </div>
+                <label class="form-label" id="requestedCountLabel" for="requestedCountInput">Members taking meal now</label>
                 <input type="number" min="1" step="1" class="form-control" id="requestedCountInput" required>
-                <div class="form-text">Backend revalidates remaining in a locked transaction.</div>
+                <div class="form-text" id="requestedCountHelp">Backend revalidates remaining in a locked transaction.</div>
                 <div id="mealModalError" class="text-danger small mt-2 d-none"></div>
             </div>
             <div class="modal-footer">
@@ -154,11 +156,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const mealModalEl = document.getElementById('mealAllocationModal');
     const mealModal = mealModalEl ? new bootstrap.Modal(mealModalEl) : null;
+    const allocationModalTitle = document.getElementById('allocationModalTitle');
     const mealModalTeamInfo = document.getElementById('mealModalTeamInfo');
     const mealModalTotal = document.getElementById('mealModalTotal');
     const mealModalTaken = document.getElementById('mealModalTaken');
     const mealModalRemaining = document.getElementById('mealModalRemaining');
+    const mealTypeRow = document.getElementById('mealTypeRow');
     const mealTypeSelect = document.getElementById('mealTypeSelect');
+    const requestedCountLabel = document.getElementById('requestedCountLabel');
+    const requestedCountHelp = document.getElementById('requestedCountHelp');
     const requestedCountInput = document.getElementById('requestedCountInput');
     const confirmMealScanBtn = document.getElementById('confirmMealScanBtn');
     const mealModalError = document.getElementById('mealModalError');
@@ -202,8 +208,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function refreshRemainingForSelectedMeal() {
-        if (!pendingMealContext || !pendingMealContext.team_id || !pendingMealContext.hackathon_id || !mealTypeSelect.value) {
+    async function refreshRemainingForSelectedAllocation() {
+        if (!pendingMealContext || !pendingMealContext.team_id || !pendingMealContext.hackathon_id) {
+            return;
+        }
+
+        const allocationMode = pendingMealContext.mode || 'meal';
+        if (allocationMode === 'meal' && !mealTypeSelect.value) {
             return;
         }
 
@@ -212,9 +223,11 @@ document.addEventListener('DOMContentLoaded', function() {
         mealModalError.classList.add('d-none');
 
         try {
-            const response = await fetch(
-                `{{ url_for("faculty.meal_scan_remaining") }}?team_id=${encodeURIComponent(pendingMealContext.team_id)}&hackathon_id=${encodeURIComponent(pendingMealContext.hackathon_id)}&meal_type=${encodeURIComponent(mealTypeSelect.value)}`
-            );
+            const url = allocationMode === 'access'
+                ? `{{ url_for("faculty.access_scan_remaining") }}?team_id=${encodeURIComponent(pendingMealContext.team_id)}&hackathon_id=${encodeURIComponent(pendingMealContext.hackathon_id)}`
+                : `{{ url_for("faculty.meal_scan_remaining") }}?team_id=${encodeURIComponent(pendingMealContext.team_id)}&hackathon_id=${encodeURIComponent(pendingMealContext.hackathon_id)}&meal_type=${encodeURIComponent(mealTypeSelect.value)}`;
+
+            const response = await fetch(url);
             const payload = await response.json();
             if (!response.ok || payload.status !== 'success') {
                 throw new Error(payload.message || 'Unable to fetch remaining count.');
@@ -231,7 +244,9 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmMealScanBtn.disabled = !(info.remaining > 0);
 
             if (!(info.remaining > 0)) {
-                mealModalError.textContent = 'All members already took this meal.';
+                mealModalError.textContent = allocationMode === 'access'
+                    ? 'All members already checked in.'
+                    : 'All members already took this meal.';
                 mealModalError.classList.remove('d-none');
             }
         } catch (err) {
@@ -241,8 +256,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function openMealModal(data) {
+    function openAllocationModal(data, mode) {
+        const allocationMode = mode || 'meal';
         pendingMealContext = {
+            mode: allocationMode,
             team_id: data.team_id,
             hackathon_id: data.hackathon_id,
             meal_type: data.meal_type,
@@ -251,16 +268,32 @@ document.addEventListener('DOMContentLoaded', function() {
             enabled_meals: Array.isArray(data.enabled_meals) ? data.enabled_meals : []
         };
 
-        mealModalTeamInfo.textContent = `${(data.meal_type || '').toUpperCase()} | ${data.team_name || 'Unknown team'} | ${data.hackathon || 'Unknown hackathon'}`;
+        if (allocationModalTitle) {
+            allocationModalTitle.textContent = allocationMode === 'access' ? 'Team Access Allocation' : 'Team Meal Allocation';
+        }
+        if (mealTypeRow) {
+            mealTypeRow.style.display = allocationMode === 'access' ? 'none' : '';
+        }
+        if (requestedCountLabel) {
+            requestedCountLabel.textContent = allocationMode === 'access' ? 'Members checking in now' : 'Members taking meal now';
+        }
+        if (requestedCountHelp) {
+            requestedCountHelp.textContent = 'Backend revalidates remaining in a locked transaction.';
+        }
 
-        const mealOptions = pendingMealContext.enabled_meals.length
-            ? pendingMealContext.enabled_meals
-            : (data.meal_type ? [data.meal_type] : []);
-        mealTypeSelect.innerHTML = mealOptions
-            .map(m => `<option value="${m}">${m.toUpperCase()}</option>`)
-            .join('');
-        mealTypeSelect.value = (data.meal_type && mealOptions.includes(data.meal_type)) ? data.meal_type : (mealOptions[0] || '');
-        mealTypeSelect.disabled = mealOptions.length <= 1;
+        const typeLabel = allocationMode === 'access' ? 'ACCESS' : ((data.meal_type || '').toUpperCase());
+        mealModalTeamInfo.textContent = `${typeLabel} | ${data.team_name || 'Unknown team'} | ${data.hackathon || 'Unknown hackathon'}`;
+
+        if (allocationMode === 'meal') {
+            const mealOptions = pendingMealContext.enabled_meals.length
+                ? pendingMealContext.enabled_meals
+                : (data.meal_type ? [data.meal_type] : []);
+            mealTypeSelect.innerHTML = mealOptions
+                .map(m => `<option value="${m}">${m.toUpperCase()}</option>`)
+                .join('');
+            mealTypeSelect.value = (data.meal_type && mealOptions.includes(data.meal_type)) ? data.meal_type : (mealOptions[0] || '');
+            mealTypeSelect.disabled = mealOptions.length <= 1;
+        }
 
         mealModalTotal.textContent = data.total_members ?? 0;
         mealModalTaken.textContent = data.already_taken ?? 0;
@@ -277,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!Number.isFinite(data.remaining)) {
-            refreshRemainingForSelectedMeal();
+            refreshRemainingForSelectedAllocation();
         }
     }
 
@@ -398,8 +431,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (!response.ok || payload.status !== 'success') {
                     renderScanResult(payload, false);
-                } else if (payload.action === 'meal_allocation_required' || (payload.data && payload.data.team_id)) {
-                    openMealModal(payload.data || {});
+                } else if (payload.action === 'meal_allocation_required' || (payload.data && payload.data.team_id && (payload.data.meal_type || payload.data.enabled_meals))) {
+                    openAllocationModal(payload.data || {}, 'meal');
+                } else if (payload.action === 'access_allocation_required' || (payload.data && payload.data.team_id && (payload.data.qr_type === 'ACCESS'))) {
+                    openAllocationModal(payload.data || {}, 'access');
                 } else {
                     renderScanResult(payload, true);
                 }
@@ -420,6 +455,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            const allocationMode = pendingMealContext.mode || 'meal';
+
             const requestedCount = Number(requestedCountInput.value);
             const maxAllowed = Number(requestedCountInput.max);
             if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > maxAllowed) {
@@ -432,17 +469,27 @@ document.addEventListener('DOMContentLoaded', function() {
             mealModalError.classList.add('d-none');
 
             try {
-                const response = await fetch('{{ url_for("faculty.submit_team_meal_scan") }}', {
+                const submitUrl = allocationMode === 'access'
+                    ? '{{ url_for("faculty.submit_team_access_scan") }}'
+                    : '{{ url_for("faculty.submit_team_meal_scan") }}';
+
+                const requestBody = {
+                    team_id: pendingMealContext.team_id,
+                    hackathon_id: pendingMealContext.hackathon_id,
+                    requested_count: requestedCount
+                };
+                if (allocationMode !== 'access') {
+                    requestBody.meal_type = mealTypeSelect.value;
+                }
+
+                const response = await fetch(submitUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        team_id: pendingMealContext.team_id,
-                        hackathon_id: pendingMealContext.hackathon_id,
-                        meal_type: mealTypeSelect.value,
-                        requested_count: requestedCount
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 const payload = await response.json();
+
+                const qrTypeLabel = allocationMode === 'access' ? 'ACCESS' : mealTypeSelect.value;
 
                 renderScanResult({
                     ...payload,
@@ -450,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ...(payload.data || {}),
                         team_name: pendingMealContext.team_name,
                         hackathon: pendingMealContext.hackathon,
-                        qr_type: mealTypeSelect.value
+                        qr_type: qrTypeLabel
                     }
                 }, response.ok && payload.status === 'success');
 
@@ -481,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (mealTypeSelect) {
         mealTypeSelect.addEventListener('change', function() {
-            refreshRemainingForSelectedMeal();
+            refreshRemainingForSelectedAllocation();
         });
     }
 });

@@ -36,6 +36,17 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <div>
+                            <label class="text-sm font-medium hh-muted">Registration Open Date</label>
+                            <input type="datetime-local" name="registration_open_date" class="form-control mt-2" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium hh-muted">Registration Close Date</label>
+                            <input type="datetime-local" name="registration_close_date" class="form-control mt-2" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                        <div>
                             <label class="text-sm font-medium hh-muted">Start Date &amp; Time</label>
                             <input type="datetime-local" name="start_date" class="form-control mt-2" required>
                         </div>
@@ -104,7 +115,7 @@
                 <div class="hh-card p-4">
                     <div class="text-sm hh-muted">Ready?</div>
                     <h2 class="text-lg font-semibold">Launch event</h2>
-                    <p class="hh-muted text-sm mt-1">Your hackathon will start as a Draft. Update status later to open registrations.</p>
+                    <p class="hh-muted text-sm mt-1">Registration and live status will be driven automatically from the dates above.</p>
                     <button type="submit" class="hh-btn hh-btn-primary w-full mt-4">
                         <i class="bi bi-rocket-takeoff"></i> Create Hackathon
                     </button>

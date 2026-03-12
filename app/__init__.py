@@ -4,6 +4,7 @@ from .extensions import db, migrate, sess
 from sqlalchemy import text
 from sqlalchemy import inspect
 from datetime import datetime
+from .utils.hackathon_lifecycle import sync_all_hackathon_statuses
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -33,6 +34,13 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(qr_bp)
 
+    @app.before_request
+    def sync_hackathon_lifecycle_state():
+        try:
+            sync_all_hackathon_statuses(commit=True)
+        except Exception:
+            db.session.rollback()
+
     @app.context_processor
     def inject_globals():
         return {'now_year': datetime.now().year}
@@ -41,13 +49,21 @@ def create_app(config_class=Config):
     def index():
         from flask import render_template, session
         from sqlalchemy import func
-        from app.models import Hackathon, Team, TeamMember
+        from app.models import Hackathon, HackathonStatus, Team, TeamMember
 
         today = datetime.utcnow().date()
         upcoming_hackathons = (
             Hackathon.query
             .filter(Hackathon.start_date.isnot(None))
             .filter(func.date(Hackathon.start_date) > today)
+            .filter(Hackathon.status.in_([
+                HackathonStatus.REGISTRATION_OPEN,
+                HackathonStatus.REGISTRATION_CLOSED,
+                HackathonStatus.PROBLEM_SELECTION,
+                HackathonStatus.ONGOING,
+                HackathonStatus.EVALUATION,
+                HackathonStatus.RESULT_PUBLISHED,
+            ]))
             .order_by(Hackathon.start_date.asc())
             .all()
         )
@@ -89,9 +105,12 @@ def create_app(config_class=Config):
                 # Ensure hackathons meal columns exist (older DBs won't have them).
                 hack_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(hackathons)')).all()]
                 hack_desired = {
+                    'registration_open_date': 'DATETIME',
+                    'registration_close_date': 'DATETIME',
                     'enable_breakfast': 'INTEGER DEFAULT 0',
                     'enable_lunch': 'INTEGER DEFAULT 0',
                     'enable_dinner': 'INTEGER DEFAULT 0',
+                    'enable_attendance': 'INTEGER DEFAULT 1',
                     'breakfast_time': 'VARCHAR(5)',
                     'lunch_time': 'VARCHAR(5)',
                     'dinner_time': 'VARCHAR(5)',

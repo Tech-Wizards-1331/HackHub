@@ -3,15 +3,13 @@
 Run from the HackHub folder:
     python seed_demo.py
 
-This script is designed to be safe to run multiple times.
-It creates a small, coherent dataset that exercises:
+Deletes ALL existing data, then creates a fresh, coherent dataset
+that exercises every major feature:
 - Admin dashboard + hackathon management
 - Participant registration + team creation + team find members
 - Faculty assignment + evaluation flows
 - QR check-in + meal scans
 - Analytics charts (registrations, attendance, evaluations)
-
-No destructive operations are performed.
 """
 
 from __future__ import annotations
@@ -37,14 +35,53 @@ from app.models import (
     Team,
     TeamMealUsage,
     TeamMember,
+    TeamVisibility,
     User,
     UserRole,
 )
 from app.utils.helpers import generate_qr
+from app.utils.hackathon_lifecycle import sync_hackathon_status
 from app.utils.qr_manager import generate_team_qrs
 
 
-RNG = random.Random(20260213)
+RNG = random.Random(20260314)
+
+# Absolute anchor: all event dates are relative to this.
+ANCHOR = datetime(2026, 3, 14, 9, 0, 0)
+
+# Tables in safe reverse-dependency order for deletion.
+_DELETE_ORDER = [
+    "qr_scan_logs",
+    "qr_food_tickets",
+    "team_join_requests",
+    "meal_scans",
+    "evaluations",
+    "team_roster_members",
+    "team_qrs",
+    "team_meal_usage",
+    "team_members",
+    "teams",
+    "qr_logs",
+    "scan_logs",
+    "faculty_assignments",
+    "team_visibility",
+    "evaluation_criteria",
+    "problem_statements",
+    "hackathons",
+    "users",
+    "access_settings",
+]
+
+
+def _delete_all_data() -> None:
+    """Delete every row from every known table (reverse-FK order)."""
+    inspector = inspect(db.engine)
+    existing_tables = {t for t in inspector.get_table_names()}
+    for table in _DELETE_ORDER:
+        if table in existing_tables:
+            db.session.execute(text(f'DELETE FROM "{table}"'))
+    db.session.commit()
+    print("Cleared all existing data.")
 
 
 @dataclass(frozen=True)
@@ -190,8 +227,11 @@ def _get_or_create_hackathon(
     name: str,
     status: HackathonStatus,
     description: str,
+    registration_open_date: datetime | None,
+    registration_close_date: datetime | None,
     start_date: datetime | None,
     end_date: datetime | None,
+    venue: str = "Campus Innovation Lab",
     enable_breakfast: bool = False,
     enable_lunch: bool = False,
     enable_dinner: bool = False,
@@ -205,11 +245,20 @@ def _get_or_create_hackathon(
         if description and hack.description != description:
             hack.description = description
             changed = True
+        if registration_open_date and getattr(hack, "registration_open_date", None) != registration_open_date:
+            hack.registration_open_date = registration_open_date
+            changed = True
+        if registration_close_date and getattr(hack, "registration_close_date", None) != registration_close_date:
+            hack.registration_close_date = registration_close_date
+            changed = True
         if start_date and hack.start_date != start_date:
             hack.start_date = start_date
             changed = True
         if end_date and hack.end_date != end_date:
             hack.end_date = end_date
+            changed = True
+        if venue and hack.venue != venue:
+            hack.venue = venue
             changed = True
         if hack.enable_breakfast != enable_breakfast:
             hack.enable_breakfast = enable_breakfast
@@ -220,6 +269,7 @@ def _get_or_create_hackathon(
         if hack.enable_dinner != enable_dinner:
             hack.enable_dinner = enable_dinner
             changed = True
+        changed = sync_hackathon_status(hack) or changed
         if changed:
             db.session.commit()
         return hack
@@ -228,6 +278,8 @@ def _get_or_create_hackathon(
         name=name,
         description=description,
         status=status,
+        registration_open_date=registration_open_date,
+        registration_close_date=registration_close_date,
         start_date=start_date,
         end_date=end_date,
         max_teams=50,
@@ -236,8 +288,9 @@ def _get_or_create_hackathon(
         enable_breakfast=enable_breakfast,
         enable_lunch=enable_lunch,
         enable_dinner=enable_dinner,
-        venue="Campus Innovation Lab",
+        venue=venue,
     )
+    sync_hackathon_status(hack)
     db.session.add(hack)
     db.session.commit()
     return hack
@@ -511,8 +564,9 @@ def seed_demo() -> None:
     app = create_app()
     with app.app_context():
         _ensure_dirs(app.root_path)
+        _delete_all_data()
 
-        now = datetime.utcnow()
+        now = ANCHOR  # March 14, 2026 09:00 UTC
 
         # --- Users ---
         admin = _get_or_create_user(
@@ -521,7 +575,7 @@ def seed_demo() -> None:
                 email="admin@hackhub.demo",
                 role=UserRole.ADMIN,
                 password="admin123",
-                full_name="Demo Admin",
+                full_name="Vikram Deshmukh",
                 created_at=now - timedelta(days=10),
             )
         )
@@ -544,6 +598,16 @@ def seed_demo() -> None:
                 password="faculty123",
                 full_name="Dr. Rahul Iyer",
                 created_at=now - timedelta(days=7),
+            )
+        )
+        faculty3 = _get_or_create_user(
+            DemoUserSpec(
+                username="faculty3",
+                email="faculty3@hackhub.demo",
+                role=UserRole.FACULTY,
+                password="faculty123",
+                full_name="Dr. Sneha Kulkarni",
+                created_at=now - timedelta(days=6),
             )
         )
 
@@ -608,81 +672,126 @@ def seed_demo() -> None:
         participants = [_get_or_create_user(s) for s in participant_specs]
 
         # --- Hackathons ---
+        # Dates centred on 14-15 March 2026
         hack_open = _get_or_create_hackathon(
-            name="Demo Hackathon (Registration Open)",
+            name="CodeSprint 2026",
             status=HackathonStatus.REGISTRATION_OPEN,
-            description="A live demo hackathon to test participant registration and team formation.",
-            start_date=now + timedelta(days=1),
-            end_date=now + timedelta(days=2),
+            description=(
+                "A 24-hour inter-college hackathon hosted by the Computer Science "
+                "Department at NIT Bhopal.  Build innovative solutions around the theme "
+                "'Smart Campus, Smarter Living'. Open to teams of 1-4 from any college."
+            ),
+            registration_open_date=datetime(2026, 3, 8, 9, 0),
+            registration_close_date=datetime(2026, 3, 14, 21, 0),
+            start_date=datetime(2026, 3, 15, 9, 0),   # 15 Mar 09:00
+            end_date=datetime(2026, 3, 16, 9, 0),      # 16 Mar 09:00
+            venue="Auditorium Block, NIT Bhopal",
             enable_breakfast=True,
             enable_lunch=True,
             enable_dinner=True,
         )
 
         hack_upcoming = _get_or_create_hackathon(
-            name="Demo Hackathon (Upcoming)",
+            name="InnoVenture Spring '26",
             status=HackathonStatus.DRAFT,
             description=(
-                "Upcoming hackathon (details published, registrations not open yet). "
-                "Rules: teams of 1–4; submit before deadline; OSS libraries allowed."
+                "Annual spring innovation challenge by the Entrepreneurship Cell, VIT Vellore. "
+                "Teams of up to 4 tackle industry-sponsored problem statements. "
+                "All open-source libraries permitted; submissions via GitHub."
             ),
-            start_date=now + timedelta(days=14),
-            end_date=now + timedelta(days=15),
+            registration_open_date=datetime(2026, 3, 20, 10, 0),
+            registration_close_date=datetime(2026, 3, 27, 18, 0),
+            start_date=datetime(2026, 3, 28, 10, 0),  # 28 Mar
+            end_date=datetime(2026, 3, 29, 18, 0),     # 29 Mar
+            venue="Technology Tower, VIT Vellore",
             enable_breakfast=True,
             enable_lunch=True,
             enable_dinner=True,
         )
 
         hack_select = _get_or_create_hackathon(
-            name="Demo Hackathon (Problem Selection)",
+            name="HackForGood Bangalore",
             status=HackathonStatus.PROBLEM_SELECTION,
-            description="Teams can select problems; used to demo problem statement flows.",
-            start_date=now - timedelta(days=1),
-            end_date=now + timedelta(days=1),
+            description=(
+                "Social-impact hackathon co-organized with IEEE Bangalore Section. "
+                "Teams choose from six NGO-partnered challenges. "
+                "Best solutions receive seed funding and mentorship."
+            ),
+            registration_open_date=datetime(2026, 3, 4, 9, 0),
+            registration_close_date=datetime(2026, 3, 11, 18, 0),
+            start_date=datetime(2026, 3, 13, 8, 0),   # 13 Mar
+            end_date=datetime(2026, 3, 15, 20, 0),     # 15 Mar
+            venue="IISC Convention Centre, Bangalore",
             enable_breakfast=True,
             enable_lunch=True,
             enable_dinner=False,
         )
 
         hack_ongoing = _get_or_create_hackathon(
-            name="Demo Hackathon (Ongoing)",
+            name="DevStorm 48",
             status=HackathonStatus.ONGOING,
-            description="Hackathon is currently in progress; coding is happening and teams can submit updates.",
-            start_date=now - timedelta(hours=3),
-            end_date=now + timedelta(hours=21),
+            description=(
+                "48-hour non-stop coding marathon at BITS Pilani Goa campus. "
+                "Themes: FinTech, HealthTech, EdTech. Midnight snacks provided!"
+            ),
+            registration_open_date=datetime(2026, 3, 1, 10, 0),
+            registration_close_date=datetime(2026, 3, 13, 20, 0),
+            start_date=datetime(2026, 3, 14, 6, 0),   # 14 Mar 06:00
+            end_date=datetime(2026, 3, 16, 6, 0),      # 16 Mar 06:00
+            venue="Student Activity Centre, BITS Pilani Goa",
             enable_breakfast=False,
             enable_lunch=True,
             enable_dinner=True,
         )
 
         hack_eval = _get_or_create_hackathon(
-            name="Demo Hackathon (Evaluation)",
+            name="TechNova Hyderabad 2026",
             status=HackathonStatus.EVALUATION,
-            description="Faculty evaluations are active; used to demo scoring + live analytics.",
-            start_date=now,
-            end_date=now + timedelta(days=1),
+            description=(
+                "Flagship national hackathon by IIIT Hyderabad. "
+                "Judging is underway — faculty panels are scoring demos "
+                "across innovation, technical depth, and user experience."
+            ),
+            registration_open_date=datetime(2026, 3, 2, 9, 0),
+            registration_close_date=datetime(2026, 3, 11, 18, 0),
+            start_date=datetime(2026, 3, 14, 9, 0),   # 14 Mar
+            end_date=datetime(2026, 3, 15, 18, 0),     # 15 Mar
+            venue="Vindhya Block, IIIT Hyderabad",
             enable_breakfast=False,
             enable_lunch=True,
             enable_dinner=True,
         )
 
         hack_await_eval = _get_or_create_hackathon(
-            name="Demo Hackathon (Awaiting Evaluation)",
+            name="CloudHacks Delhi NCR",
             status=HackathonStatus.EVALUATION,
-            description="Coding has ended and submissions are in; faculty evaluations are pending.",
-            start_date=now - timedelta(days=2),
-            end_date=now - timedelta(days=1),
+            description=(
+                "Cloud-native hackathon by DTU and AWS User Group Delhi. "
+                "Coding has concluded; submissions are locked. "
+                "Faculty evaluations are pending."
+            ),
+            registration_open_date=datetime(2026, 2, 28, 10, 0),
+            registration_close_date=datetime(2026, 3, 10, 18, 0),
+            start_date=datetime(2026, 3, 12, 10, 0),  # 12 Mar
+            end_date=datetime(2026, 3, 13, 18, 0),     # 13 Mar
+            venue="Seminar Hall, DTU Delhi",
             enable_breakfast=False,
             enable_lunch=True,
             enable_dinner=False,
         )
 
         hack_results = _get_or_create_hackathon(
-            name="Demo Hackathon (Results Published)",
+            name="BuildIt! Pune 2026",
             status=HackathonStatus.RESULT_PUBLISHED,
-            description="Shows results tables and locked evaluations.",
-            start_date=now - timedelta(days=3),
-            end_date=now - timedelta(days=2),
+            description=(
+                "Pune's premier student hackathon held at MIT-WPU. "
+                "Results are published — congratulations to the winners!"
+            ),
+            registration_open_date=datetime(2026, 2, 26, 9, 0),
+            registration_close_date=datetime(2026, 3, 9, 20, 0),
+            start_date=datetime(2026, 3, 11, 9, 0),   # 11 Mar
+            end_date=datetime(2026, 3, 12, 17, 0),     # 12 Mar
+            venue="Rajiv Gandhi IT Park Auditorium, Pune",
             enable_breakfast=False,
             enable_lunch=False,
             enable_dinner=False,
@@ -784,18 +893,6 @@ def seed_demo() -> None:
         _set_team_created_at(team_eval_3.id, now - timedelta(hours=10))
         _set_team_created_at(team_eval_4.id, now - timedelta(hours=3))
 
-<<<<<<< HEAD
-        # Results-published hack
-        team_res_1 = _get_or_create_team(hackathon=hack_results, name="Team Zenith", leader=participants[12])
-        team_res_2 = _get_or_create_team(hackathon=hack_results, name="Team Summit", leader=participants[13])
-        if team_res_1.problem_statement_id is None:
-            team_res_1.problem_statement_id = probs_results[0].id
-        if team_res_2.problem_statement_id is None and len(probs_results) > 1:
-            team_res_2.problem_statement_id = probs_results[1].id
-        db.session.commit()
-        _set_team_created_at(team_res_1.id, now - timedelta(days=6))
-        _set_team_created_at(team_res_2.id, now - timedelta(days=6, hours=6))
-=======
         # Awaiting-evaluation hack: submissions are in, but do NOT seed evaluations
         team_ae_1 = _get_or_create_team(hackathon=hack_await_eval, name="Team Comet", leader=participants[2])
         team_ae_2 = _get_or_create_team(hackathon=hack_await_eval, name="Team Horizon", leader=participants[3])
@@ -832,46 +929,92 @@ def seed_demo() -> None:
         _set_team_created_at(team_res_2.id, now - timedelta(days=6, hours=2))
         _set_team_created_at(team_res_3.id, now - timedelta(days=6, hours=4))
         _set_team_created_at(team_res_4.id, now - timedelta(days=6, hours=6))
->>>>>>> 6d7a7a59c6fe15948cc23d3448797187c92b2de9
 
-        # Ensure solo participants exist for registration-open hack (public + not in any team there)
-        # Make a few extra participants public explicitly.
-        for p in participants[8:26]:
-            # If they are already in teams for other hackathons, that's fine.
-            if p.role == UserRole.PARTICIPANT:
-                p.is_public = True
+        # --- Solo participants for Find-Team feature ---
+        # These participants are NOT in any team and have TeamVisibility
+        # records so the find-members API can discover them.
+        solo_profiles = [
+            ("Tara Shankar", "Frontend (React), Tailwind, responsive design", "Intermediate", "NIT Trichy"),
+            ("Vivek Menon", "Backend (Django), REST APIs, PostgreSQL", "Advanced", "IIT Madras"),
+            ("Riya Agarwal", "AI/ML, NLP, TensorFlow, data pipelines", "Advanced", "IIIT Hyderabad"),
+            ("Karthik Nair", "Mobile (React Native), Firebase, app store deploy", "Intermediate", "BITS Hyderabad"),
+            ("Anjali Mishra", "UI/UX (Figma), wireframing, user research", "Beginner", "NIFT Delhi"),
+            ("Sameer Joshi", "Cloud (AWS), Lambda, serverless, CI/CD", "Advanced", "COEP Pune"),
+            ("Priya Rajan", "Data engineering, Spark, Kafka, ETL", "Intermediate", "PSG Tech"),
+            ("Nikhil Bhatt", "Cybersecurity, pen testing, OWASP", "Advanced", "DA-IICT"),
+            ("Megha Sinha", "Frontend (Vue.js), TypeScript, testing", "Intermediate", "BIT Mesra"),
+            ("Aryan Kapoor", "Backend (Go), microservices, gRPC", "Advanced", "IIIT Bangalore"),
+            ("Srishti Pandey", "AI/ML, computer vision, OpenCV, PyTorch", "Intermediate", "IIT Roorkee"),
+            ("Dhruv Saxena", "DevOps, Docker, Kubernetes, monitoring", "Intermediate", "MNNIT Allahabad"),
+            ("Kavitha R", "Mobile (Flutter), Dart, offline-first apps", "Beginner", "SSN College"),
+            ("Rahul Tiwari", "Full-stack (MERN), GraphQL, WebSockets", "Advanced", "IIIT Lucknow"),
+        ]
+
+        solo_participants = []
+        for i, (full_name, skills, level, college) in enumerate(solo_profiles, start=37):
+            created_at = now - timedelta(days=RNG.randint(1, 8), hours=RNG.randint(0, 23))
+            p = _get_or_create_user(
+                DemoUserSpec(
+                    username=f"participant{i}",
+                    email=f"participant{i}@hackhub.demo",
+                    role=UserRole.PARTICIPANT,
+                    password="participant123",
+                    full_name=full_name,
+                    skills=skills,
+                    experience_level=level,
+                    college=college,
+                    is_public=True,
+                    created_at=created_at,
+                )
+            )
+            solo_participants.append(p)
+
+        # Create TeamVisibility records so these solo participants appear in find-members
+        for p in solo_participants:
+            if not TeamVisibility.query.filter_by(
+                hackathon_id=hack_open.id, user_id=p.id
+            ).first():
+                db.session.add(
+                    TeamVisibility(
+                        hackathon_id=hack_open.id,
+                        user_id=p.id,
+                        is_active=True,
+                    )
+                )
         db.session.commit()
 
         # --- Faculty assignments ---
         for hack in (hack_select, hack_ongoing, hack_eval, hack_await_eval, hack_results):
             _ensure_faculty_assignment(hack, faculty1)
             _ensure_faculty_assignment(hack, faculty2)
+            _ensure_faculty_assignment(hack, faculty3)
 
         # --- Evaluations ---
-<<<<<<< HEAD
-        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2, team_eval_3, team_eval_4], live_activity=True)
-        _ensure_evaluations(hack_results, [faculty1, faculty2], [team_res_1, team_res_2], live_activity=False)
-=======
-        _ensure_evaluations(hack_eval, [faculty1, faculty2], [team_eval_1, team_eval_2], live_activity=True)
+        _ensure_evaluations(
+            hack_eval,
+            [faculty1, faculty2, faculty3],
+            [team_eval_1, team_eval_2, team_eval_3, team_eval_4],
+            live_activity=True,
+        )
         _ensure_evaluations(
             hack_results,
-            [faculty1, faculty2],
+            [faculty1, faculty2, faculty3],
             [team_res_1, team_res_2, team_res_3, team_res_4],
             live_activity=False,
         )
->>>>>>> 6d7a7a59c6fe15948cc23d3448797187c92b2de9
 
         # --- Attendance + meal usage ---
         _ensure_attendance(hack_eval, scanned_by=faculty1, participants=participants, count=18)
         _ensure_meal_usage(hack_eval, [team_eval_1, team_eval_2, team_eval_3, team_eval_4])
         _ensure_meal_usage(hack_open, [team_open_1, team_open_2, team_open_3, team_open_4])
 
-        print("\nDemo data ready.")
+        print("\nDemo data ready.  Event dates centred on 14-15 Mar 2026.")
         print("Login credentials:")
-        print("- Admin:     admin@hackhub.demo / admin123")
-        print("- Faculty:   faculty1@hackhub.demo / faculty123")
-        print("- Faculty:   faculty2@hackhub.demo / faculty123")
-        print("- Participant examples: participant1@hackhub.demo / participant123")
+        print("- Admin:       admin@hackhub.demo / admin123")
+        print("- Faculty 1:   faculty1@hackhub.demo / faculty123")
+        print("- Faculty 2:   faculty2@hackhub.demo / faculty123")
+        print("- Faculty 3:   faculty3@hackhub.demo / faculty123")
+        print("- Participant: participant1@hackhub.demo / participant123  (1-50)")
 
 
 if __name__ == "__main__":

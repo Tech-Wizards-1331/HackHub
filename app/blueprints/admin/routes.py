@@ -6,6 +6,7 @@ from app.models import (
     EvaluationCriteria, User, UserRole, FacultyAssignment, ScanLog,
     Team, TeamMember
 )
+from app.utils.hackathon_lifecycle import sync_hackathon_status
 from app.utils.problem_selection import auto_assign_problems
 from functools import wraps
 from datetime import datetime
@@ -71,12 +72,29 @@ def create_hackathon():
         max_teams = request.form.get('max_teams')
         min_team_size = request.form.get('min_team_size')
         max_team_size = request.form.get('max_team_size')
+        registration_open_date = datetime.strptime(request.form.get('registration_open_date'), '%Y-%m-%dT%H:%M')
+        registration_close_str = request.form.get('registration_close_date')
+        registration_close_date = None
+        if registration_close_str:
+            registration_close_date = datetime.strptime(registration_close_str, '%Y-%m-%dT%H:%M')
         start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%dT%H:%M')
         
         end_date_str = request.form.get('end_date')
         end_date = None
         if end_date_str:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M')
+
+        if registration_close_date and registration_open_date > registration_close_date:
+            flash('Registration open date must be before registration close date.', 'error')
+            return redirect(url_for('admin.create_hackathon'))
+
+        if registration_close_date and registration_close_date > start_date:
+            flash('Registration close date must be on or before the hackathon start date.', 'error')
+            return redirect(url_for('admin.create_hackathon'))
+
+        if end_date and end_date < start_date:
+            flash('Hackathon end date must be after the start date.', 'error')
+            return redirect(url_for('admin.create_hackathon'))
         
         # Meal Config
         enable_breakfast = 'enable_breakfast' in request.form
@@ -95,6 +113,8 @@ def create_hackathon():
             max_teams=max_teams,
             min_team_size=min_team_size,
             max_team_size=max_team_size,
+            registration_open_date=registration_open_date,
+            registration_close_date=registration_close_date,
             start_date=start_date,
             end_date=end_date,
             enable_breakfast=enable_breakfast,
@@ -104,6 +124,7 @@ def create_hackathon():
             lunch_time=lunch_time if enable_lunch else None,
             dinner_time=dinner_time if enable_dinner else None,
         )
+        sync_hackathon_status(hackathon)
         db.session.add(hackathon)
         db.session.commit()
         flash('Hackathon created', 'success')
@@ -138,6 +159,11 @@ def manage_hackathon(id):
             
             db.session.commit()
             flash('Meal configuration updated', 'success')
+
+        elif action == 'update_attendance':
+            hackathon.enable_attendance = 'enable_attendance' in request.form
+            db.session.commit()
+            flash('Attendance QR configuration updated', 'success')
 
         elif status_str:
             hackathon.status = HackathonStatus[status_str]

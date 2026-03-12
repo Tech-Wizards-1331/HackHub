@@ -2,10 +2,12 @@ from flask import render_template, request, session, redirect, url_for, flash
 from . import participant_bp
 from app.extensions import db
 from app.models import Hackathon, Team, TeamMember, User, HackathonStatus, ProblemStatement, TeamQR, TeamJoinRequest, TeamRosterMember, UserRole, TeamVisibility
+from app.utils.hackathon_lifecycle import sync_hackathon_status
 from datetime import datetime
 from flask import jsonify, current_app
 from app.utils.qr_manager import generate_team_qrs
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from functools import wraps
 import uuid
 import re
@@ -34,17 +36,11 @@ def _find_date_conflict(user_id, hackathon):
     )
 
 def _auto_close_registration_if_due(hackathon):
-    if not hackathon or not hackathon.start_date:
+    if not hackathon:
         return False
 
-    today = datetime.utcnow().date()
-    event_date = hackathon.start_date.date()
-    if event_date <= today:
-        if hackathon.status != HackathonStatus.REGISTRATION_CLOSED:
-            hackathon.status = HackathonStatus.REGISTRATION_CLOSED
-            db.session.commit()
-        return True
-    return False
+    sync_hackathon_status(hackathon, commit=True)
+    return hackathon.status != HackathonStatus.REGISTRATION_OPEN
 
 def participant_required(f):
     @wraps(f)
@@ -59,8 +55,15 @@ def participant_required(f):
 @participant_required
 def dashboard():
     user_id = session.get('user_id')
-    # Use join to get team details
-    my_memberships = TeamMember.query.filter_by(user_id=user_id).all()
+    my_memberships = (
+        TeamMember.query
+        .join(Team, TeamMember.team_id == Team.id)
+        .join(Hackathon, Team.hackathon_id == Hackathon.id)
+        .options(joinedload(TeamMember.team).joinedload(Team.hackathon))
+        .filter(TeamMember.user_id == user_id)
+        .order_by(Hackathon.start_date.desc(), Hackathon.name.asc(), Team.name.asc())
+        .all()
+    )
 
     pending_requests = TeamJoinRequest.query.filter_by(
         user_id=user_id,
@@ -72,6 +75,7 @@ def dashboard():
         db.session.query(Team.hackathon_id)
         .join(TeamMember, TeamMember.team_id == Team.id)
         .filter(TeamMember.user_id == user_id)
+        .distinct()
     )
     open_hackathons = (
         Hackathon.query
@@ -350,13 +354,19 @@ def view_team(team_id):
     )
 
     members_by_email = {}
+    members_by_user_id = {}
     for tm in team.members:
-        if tm.user and tm.user.email:
-            members_by_email[tm.user.email.lower()] = tm
+        if tm.user:
+            members_by_user_id[tm.user_id] = tm
+            if tm.user.email:
+                members_by_email[tm.user.email.lower()] = tm
 
     roster_view = []
+    linked_user_ids = set()
     for r in roster_rows:
         linked = members_by_email.get((r.email or '').lower())
+        if linked:
+            linked_user_ids.add(linked.user_id)
         roster_view.append({
             'full_name': r.full_name,
             'email': r.email,
@@ -366,6 +376,27 @@ def view_team(team_id):
             'linked_username': (linked.user.username if linked and linked.user else None),
             'linked_display_name': (linked.user.full_name if linked and linked.user else None),
         })
+
+    # Include members added after registration, such as accepted join requests.
+    for tm in team.members:
+        if not tm.user or tm.user_id in linked_user_ids:
+            continue
+        roster_view.append({
+            'full_name': tm.user.full_name or tm.user.username,
+            'email': tm.user.email,
+            'is_leader': tm.user_id == team.leader_id,
+            'linked_team_member_id': tm.id,
+            'linked_user_id': tm.user_id,
+            'linked_username': tm.user.username,
+            'linked_display_name': tm.user.full_name,
+        })
+
+    roster_view.sort(
+        key=lambda row: (
+            0 if row['is_leader'] else 1,
+            (row['linked_display_name'] or row['full_name'] or row['linked_username'] or '').lower(),
+        )
+    )
     
     # Filter available problems: Only those not at capacity
     available_problems = []
@@ -472,7 +503,15 @@ def accept_team_request(request_id):
         return redirect(url_for('participant.dashboard'))
 
     # The participant accepting this request is `join_request.user_id` (matches session user).
-    existing_membership = TeamMember.query.filter(TeamMember.user_id == join_request.user_id).first()
+    existing_membership = (
+        TeamMember.query
+        .join(Team)
+        .filter(
+            TeamMember.user_id == join_request.user_id,
+            Team.hackathon_id == hackathon.id,
+        )
+        .first()
+    )
     if existing_membership:
         if existing_membership.team_id == team.id:
             # Already joined this team; finalize request status.
@@ -486,13 +525,13 @@ def accept_team_request(request_id):
                 flash('Failed to update request status. Please try again.', 'error')
             return redirect(url_for('participant.dashboard'))
 
-        # Allow multiple hackathons, but block same-date conflicts.
-        conflict = _find_date_conflict(join_request.user_id, hackathon)
-        if conflict and conflict.team and conflict.team.hackathon_id != hackathon.id:
-            flash('You are already registered for another hackathon on this date.', 'error')
-            return redirect(url_for('participant.dashboard'))
+        flash('You are already in another team for this hackathon.', 'error')
+        return redirect(url_for('participant.dashboard'))
 
-        flash('You are already registered in a team.', 'error')
+    # Block same-date conflicts with other hackathons.
+    conflict = _find_date_conflict(join_request.user_id, hackathon)
+    if conflict and conflict.team and conflict.team.hackathon_id != hackathon.id:
+        flash('You are already registered for another hackathon on this date.', 'error')
         return redirect(url_for('participant.dashboard'))
 
     try:

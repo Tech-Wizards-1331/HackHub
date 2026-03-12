@@ -107,7 +107,14 @@ def login():
                 return redirect(url_for('participant.dashboard'))
         
         flash('Invalid credentials', 'error')
-    return render_template('auth/login.html')
+
+    demo_users = (
+        User.query
+        .filter(User.email.like('%@hackhub.demo'))
+        .order_by(User.role, User.id)
+        .all()
+    )
+    return render_template('auth/login.html', demo_users=demo_users)
 
 @auth_bp.route('/logout')
 def logout():

@@ -53,6 +53,8 @@ class Hackathon(db.Model):
     description = db.Column(db.Text)
     venue = db.Column(db.String(150))
     status = db.Column(db.Enum(HackathonStatus, name='hackathon_status'), default=HackathonStatus.DRAFT)
+    registration_open_date = db.Column(db.DateTime)
+    registration_close_date = db.Column(db.DateTime)
     
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
@@ -65,6 +67,10 @@ class Hackathon(db.Model):
     enable_breakfast = db.Column(db.Boolean, default=False)
     enable_lunch = db.Column(db.Boolean, default=False)
     enable_dinner = db.Column(db.Boolean, default=False)
+
+    # Attendance / Access QR
+    # Controls whether ACCESS/ENTRY scanning is enabled for this hackathon.
+    enable_attendance = db.Column(db.Boolean, default=True)
     
     # Meal Times (duration: start_time to start_time + 1 hour)
     # Format: HH:MM (24-hour format), relative to hackathon start_date

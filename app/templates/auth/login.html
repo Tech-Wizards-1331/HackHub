@@ -30,14 +30,14 @@
                         </div>
                     </div>
 
-                    <form method="POST" class="grid gap-3" style="max-width: 460px;">
+                    <form id="loginForm" method="POST" class="grid gap-3" style="max-width: 460px;">
                         <div>
                             <label class="form-label mb-1 hh-auth-label">Email</label>
                             <div class="input-group">
                                 <span class="input-group-text hh-auth-icon" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
                                     <i class="bi bi-envelope"></i>
                                 </span>
-                                <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
+                                <input type="email" name="email" id="emailInput" class="form-control" placeholder="name@example.com" required>
                             </div>
                         </div>
 
@@ -47,7 +47,7 @@
                                 <span class="input-group-text hh-auth-icon" style="background: rgba(255,255,255,0.04); border-color: var(--hh-border); color: var(--hh-muted);">
                                     <i class="bi bi-key"></i>
                                 </span>
-                                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                                <input type="password" name="password" id="passwordInput" class="form-control" placeholder="••••••••" required>
                             </div>
                         </div>
 
@@ -69,9 +69,64 @@
                             <a href="{{ url_for('auth.register') }}" class="text-decoration-none hh-auth-link" style="font-weight: 800;">Create New Account</a>
                         </div>
                     </form>
+
+                    <!-- Quick Demo Login -->
+                    {% if demo_users %}
+                    <div class="mt-4 pt-3" style="max-width: 460px; border-top: 1px solid var(--hh-border, rgba(255,255,255,0.1));">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-lightning-charge-fill" style="color: #f59e0b; font-size: 0.95rem;"></i>
+                            <span class="fw-semibold" style="font-size: 0.85rem; color: var(--hh-muted); text-transform: uppercase; letter-spacing: 0.04em;">Quick Demo Login</span>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn w-100 d-flex align-items-center justify-content-between" type="button"
+                                id="demoUserDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid var(--hh-border, rgba(255,255,255,0.12)); color: var(--hh-fg, #e2e8f0); font-size: 0.9rem; padding: 0.55rem 0.85rem;">
+                                <span><i class="bi bi-people-fill me-2"></i>Select a demo account&hellip;</span>
+                                <i class="bi bi-chevron-down" style="font-size: 0.75rem;"></i>
+                            </button>
+                            <ul class="dropdown-menu w-100 py-1" aria-labelledby="demoUserDropdown"
+                                style="max-height: 320px; overflow-y: auto; background: var(--hh-card-bg, #1e1b2e); border: 1px solid var(--hh-border, rgba(255,255,255,0.12));">
+                                {% set ns = namespace(last_role='') %}
+                                {% for u in demo_users %}
+                                    {% if u.role.value != ns.last_role %}
+                                        {% if ns.last_role %}<li><hr class="dropdown-divider" style="border-color: var(--hh-border, rgba(255,255,255,0.08));"></li>{% endif %}
+                                        <li class="px-3 pt-1 pb-1">
+                                            <span class="text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.06em; color: var(--hh-muted, #94a3b8);">
+                                                {% if u.role.value == 'ADMIN' %}<i class="bi bi-shield-fill me-1" style="color:#ef4444;"></i>Admin
+                                                {% elif u.role.value == 'FACULTY' %}<i class="bi bi-mortarboard-fill me-1" style="color:#3b82f6;"></i>Faculty
+                                                {% else %}<i class="bi bi-person-fill me-1" style="color:#10b981;"></i>Participants
+                                                {% endif %}
+                                            </span>
+                                        </li>
+                                        {% set ns.last_role = u.role.value %}
+                                    {% endif %}
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 quick-login-btn"
+                                            style="font-size: 0.84rem; color: var(--hh-fg, #e2e8f0); padding: 0.4rem 0.85rem;"
+                                            data-email="{{ u.email }}"
+                                            data-password="{% if u.role.value == 'ADMIN' %}admin123{% elif u.role.value == 'FACULTY' %}faculty123{% else %}participant123{% endif %}">
+                                            <span class="fw-semibold">{{ u.full_name or u.username }}</span>
+                                            <span class="ms-auto" style="font-size: 0.75rem; color: var(--hh-muted, #94a3b8);">{{ u.email }}</span>
+                                        </button>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.quick-login-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.getElementById('emailInput').value = this.dataset.email;
+        document.getElementById('passwordInput').value = this.dataset.password;
+        document.getElementById('loginForm').submit();
+    });
+});
+</script>
 {% endblock %}

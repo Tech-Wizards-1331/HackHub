@@ -17,6 +17,7 @@ from app.models import (
 from functools import wraps
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 import re
 from urllib.parse import urlparse, parse_qs
 from sqlalchemy import func
@@ -106,7 +107,7 @@ def _supports_row_locking():
     return dialect in ('postgresql', 'mysql')
 
 
-def _lock_team_scope(team_id, hackathon_id, meal_type):
+def _lock_team_scope(team_id, hackathon_id, meal_type=None):
     if not _supports_row_locking():
         return
 
@@ -118,17 +119,19 @@ def _lock_team_scope(team_id, hackathon_id, meal_type):
         text('SELECT id FROM team_members WHERE team_id = :team_id FOR UPDATE'),
         {'team_id': team_id}
     )
-    db.session.execute(
-        text('''
-            SELECT id
-            FROM meal_scans
-            WHERE team_id = :team_id
-              AND hackathon_id = :hackathon_id
-              AND meal_type = :meal_type
-            FOR UPDATE
-        '''),
-        {'team_id': team_id, 'hackathon_id': hackathon_id, 'meal_type': meal_type}
-    )
+
+    if meal_type:
+        db.session.execute(
+            text('''
+                SELECT id
+                FROM meal_scans
+                WHERE team_id = :team_id
+                  AND hackathon_id = :hackathon_id
+                  AND meal_type = :meal_type
+                FOR UPDATE
+            '''),
+            {'team_id': team_id, 'hackathon_id': hackathon_id, 'meal_type': meal_type}
+        )
 
 
 def _get_team_meal_stats(team_id, hackathon_id, meal_type):
@@ -140,6 +143,121 @@ def _get_team_meal_stats(team_id, hackathon_id, meal_type):
     ).count()
     remaining = max(total_members - already_taken, 0)
     return total_members, already_taken, remaining
+
+
+def _get_team_access_stats(team_id, hackathon_id):
+    # hackathon_id is used for validation and future-proofing; presence is currently stored on User.
+    total_members = db.session.query(TeamMember).filter_by(team_id=team_id).count()
+    already_checked_in = (
+        db.session.query(TeamMember)
+        .join(User, TeamMember.user_id == User.id)
+        .filter(TeamMember.team_id == team_id)
+        .filter(User.is_present.is_(True))
+        .count()
+    )
+    remaining = max(total_members - already_checked_in, 0)
+    return total_members, already_checked_in, remaining
+
+
+def _allocate_access_atomic(team_id, hackathon_id, requested_count, scanned_by):
+    team = Team.query.filter_by(id=team_id, hackathon_id=hackathon_id).first()
+    if not team:
+        return {'ok': False, 'status': 404, 'message': 'Invalid team for this hackathon.'}
+
+    if requested_count <= 0:
+        return {'ok': False, 'status': 400, 'message': 'requested_count must be at least 1.'}
+
+    try:
+        with db.session.begin_nested():
+            _lock_team_scope(team_id, hackathon_id, None)
+
+            total_members, already_checked_in, remaining = _get_team_access_stats(team_id, hackathon_id)
+
+            if total_members == 0:
+                return {'ok': False, 'status': 400, 'message': 'Team has no members.'}
+
+            if remaining == 0:
+                return {'ok': False, 'status': 409, 'message': 'All members already checked in.',
+                        'stats': {'total_members': total_members, 'already_taken': already_checked_in, 'remaining': remaining}}
+
+            if requested_count > remaining:
+                return {
+                    'ok': False,
+                    'status': 409,
+                    'message': f'Request exceeds remaining limit. Remaining: {remaining}.',
+                    'stats': {
+                        'total_members': total_members,
+                        'already_taken': already_checked_in,
+                        'remaining': remaining,
+                    }
+                }
+
+            eligible = (
+                db.session.query(TeamMember.user_id)
+                .join(User, TeamMember.user_id == User.id)
+                .filter(TeamMember.team_id == team_id)
+                .filter((User.is_present.is_(False)) | (User.is_present.is_(None)))
+                .order_by(TeamMember.id.asc())
+                .limit(requested_count)
+                .all()
+            )
+            eligible_user_ids = [row[0] for row in eligible]
+
+            if len(eligible_user_ids) != requested_count:
+                raise IntegrityError(
+                    f'Expected to check in {requested_count}, found {len(eligible_user_ids)} eligible.',
+                    None,
+                    None
+                )
+
+            # Mark present
+            db.session.query(User).filter(User.id.in_(eligible_user_ids)).update(
+                {User.is_present: True},
+                synchronize_session=False,
+            )
+
+            # Log check-in (reuse existing QRLog model)
+            now = datetime.utcnow()
+            for uid in eligible_user_ids:
+                db.session.add(
+                    QRLog(
+                        participant_id=uid,
+                        scanned_by_id=scanned_by,
+                        scan_type='REGISTRATION',
+                        timestamp=now,
+                        details=f'Team ACCESS scan: team_id={team_id}',
+                    )
+                )
+
+        db.session.commit()
+
+        total_members, already_checked_in, remaining = _get_team_access_stats(team_id, hackathon_id)
+        return {
+            'ok': True,
+            'status': 200,
+            'message': f'Access recorded for {requested_count} member(s).',
+            'stats': {
+                'total_members': total_members,
+                'already_taken': already_checked_in,
+                'remaining': remaining,
+            }
+        }
+    except IntegrityError:
+        db.session.rollback()
+        total_members, already_checked_in, remaining = _get_team_access_stats(team_id, hackathon_id)
+        return {
+            'ok': False,
+            'status': 409,
+            'message': 'Concurrent update detected. Please retry with updated remaining count.',
+            'stats': {
+                'total_members': total_members,
+                'already_taken': already_checked_in,
+                'remaining': remaining,
+            }
+        }
+    except Exception as e:
+        db.session.rollback()
+        return {'ok': False, 'status': 500, 'message': f'Failed to record access scan: {e}'}
 
 
 def _allocate_meals_atomic(team_id, hackathon_id, meal_type, requested_count, scanned_by):
@@ -351,14 +469,25 @@ def scan_qr():
                 
                 # Process by QR Type
                 if qr_type == 'ACCESS':
+                    if not getattr(team.hackathon, 'enable_attendance', True):
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'Attendance QR is disabled for this hackathon.',
+                            'data': response_data
+                        }), 403
+
+                    total_members, already_checked_in, remaining = _get_team_access_stats(team.id, team.hackathon_id)
                     response_data.update({
-                        'enabled_meals': enabled_meals,
-                        'meal_type': enabled_meals[0],
+                        'mode': 'access',
+                        'qr_type': 'ACCESS',
+                        'total_members': total_members,
+                        'already_taken': already_checked_in,
+                        'remaining': remaining,
                     })
                     return jsonify({
                         'status': 'success',
-                        'action': 'meal_allocation_required',
-                        'message': 'Team QR verified. Select meal type and enter members taking meal.',
+                        'action': 'access_allocation_required',
+                        'message': 'ACCESS QR verified. Enter members entering now.',
                         'data': response_data
                     }), 200
                 
@@ -435,6 +564,36 @@ def meal_scan_remaining():
     }), 200
 
 
+@faculty_bp.route('/scan_qr/access_remaining', methods=['GET'])
+@faculty_required
+def access_scan_remaining():
+    team_id = request.args.get('team_id', type=int)
+    hackathon_id = request.args.get('hackathon_id', type=int)
+
+    if not team_id or not hackathon_id:
+        return jsonify({'status': 'error', 'message': 'team_id and hackathon_id are required.'}), 400
+
+    team = Team.query.filter_by(id=team_id, hackathon_id=hackathon_id).first()
+    if not team:
+        return jsonify({'status': 'error', 'message': 'Invalid team for this hackathon.'}), 404
+
+    if not getattr(team.hackathon, 'enable_attendance', True):
+        return jsonify({'status': 'error', 'message': 'Attendance QR is disabled for this hackathon.'}), 403
+
+    total_members, already_checked_in, remaining = _get_team_access_stats(team_id, hackathon_id)
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'team_id': team_id,
+            'hackathon_id': hackathon_id,
+            'qr_type': 'ACCESS',
+            'total_members': total_members,
+            'already_taken': already_checked_in,
+            'remaining': remaining,
+        }
+    }), 200
+
+
 @faculty_bp.route('/scan_qr/submit', methods=['POST'])
 @faculty_required
 def submit_team_meal_scan():
@@ -461,6 +620,46 @@ def submit_team_meal_scan():
         team_id=team_id,
         hackathon_id=hackathon_id,
         meal_type=meal_type,
+        requested_count=requested_count,
+        scanned_by=session['user_id']
+    )
+
+    status_text = 'success' if result['ok'] else 'error'
+    return jsonify({
+        'status': status_text,
+        'message': result['message'],
+        'data': result.get('stats', {})
+    }), result['status']
+
+
+@faculty_bp.route('/scan_qr/access_submit', methods=['POST'])
+@faculty_required
+def submit_team_access_scan():
+    if not request.is_json:
+        return jsonify({'status': 'error', 'message': 'JSON body required.'}), 400
+
+    payload = request.get_json(silent=True) or {}
+    team_id = payload.get('team_id')
+    hackathon_id = payload.get('hackathon_id')
+    requested_count = payload.get('requested_count')
+
+    try:
+        team_id = int(team_id)
+        hackathon_id = int(hackathon_id)
+        requested_count = int(requested_count)
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'team_id, hackathon_id and requested_count must be integers.'}), 400
+
+    team = Team.query.filter_by(id=team_id, hackathon_id=hackathon_id).first()
+    if not team:
+        return jsonify({'status': 'error', 'message': 'Invalid team for this hackathon.'}), 404
+
+    if not getattr(team.hackathon, 'enable_attendance', True):
+        return jsonify({'status': 'error', 'message': 'Attendance QR is disabled for this hackathon.'}), 403
+
+    result = _allocate_access_atomic(
+        team_id=team_id,
+        hackathon_id=hackathon_id,
         requested_count=requested_count,
         scanned_by=session['user_id']
     )

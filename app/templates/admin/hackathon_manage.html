@@ -5,7 +5,7 @@
     ('REGISTRATION_OPEN', 'Registration Open', 'bi-unlock'),
     ('REGISTRATION_CLOSED', 'Registration Closed', 'bi-lock'),
     ('PROBLEM_SELECTION', 'Problem Selection', 'bi-list-check'),
-    ('ONGOING', 'Ongoing', 'bi-play-circle'),
+    ('ONGOING', 'Live Phase', 'bi-play-circle'),
     ('EVALUATION', 'Evaluation', 'bi-clipboard-data'),
     ('RESULT_PUBLISHED', 'Results Published', 'bi-megaphone'),
     ('ARCHIVED', 'Archived', 'bi-archive')
@@ -105,26 +105,51 @@
 
             <div class="hh-card p-4">
                 <div class="text-sm hh-muted">Operations</div>
-                <h2 class="text-lg font-semibold">Meal QR configuration</h2>
-                <p class="hh-muted text-sm mt-1">Enable/disable meal QR types for this hackathon.</p>
-                <form method="POST" class="mt-3">
-                    <input type="hidden" name="action" value="update_meals">
-                    <div class="d-flex gap-4 flex-wrap">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast" {% if hackathon.enable_breakfast %}checked{% endif %}>
-                            <label class="form-check-label" for="checkBreakfast">Breakfast</label>
+                <h2 class="text-lg font-semibold">QR configuration</h2>
+                <p class="hh-muted text-sm mt-1">Configure which QR flows are enabled for this hackathon.</p>
+
+                <div class="btn-group mt-3" role="group" aria-label="QR config selector">
+                    <button type="button" class="btn btn-outline-light" id="qrCfgMealsBtn">Meals</button>
+                    <button type="button" class="btn btn-outline-light" id="qrCfgAttendanceBtn">Attendance</button>
+                </div>
+
+                <div id="qrCfgMealsPanel" class="mt-3">
+                    <div class="font-medium">Meal QR configuration</div>
+                    <div class="hh-muted text-sm mt-1">Enable/disable meal QR types for this hackathon.</div>
+                    <form method="POST" class="mt-3">
+                        <input type="hidden" name="action" value="update_meals">
+                        <div class="d-flex gap-4 flex-wrap">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="enable_breakfast" id="checkBreakfast" {% if hackathon.enable_breakfast %}checked{% endif %}>
+                                <label class="form-check-label" for="checkBreakfast">Breakfast</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch" {% if hackathon.enable_lunch %}checked{% endif %}>
+                                <label class="form-check-label" for="checkLunch">Lunch</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner" {% if hackathon.enable_dinner %}checked{% endif %}>
+                                <label class="form-check-label" for="checkDinner">Dinner</label>
+                            </div>
                         </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="enable_lunch" id="checkLunch" {% if hackathon.enable_lunch %}checked{% endif %}>
-                            <label class="form-check-label" for="checkLunch">Lunch</label>
+                        <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i> Save</button>
+                    </form>
+                </div>
+
+                <div id="qrCfgAttendancePanel" class="mt-3" style="display: none;">
+                    <div class="font-medium">Attendance QR configuration</div>
+                    <div class="hh-muted text-sm mt-1">Enable/disable attendance (access/entry) scans for this hackathon.</div>
+                    <form method="POST" class="mt-3">
+                        <input type="hidden" name="action" value="update_attendance">
+                        <div class="d-flex gap-4 flex-wrap">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="enable_attendance" id="checkAttendance" {% if hackathon.enable_attendance %}checked{% endif %}>
+                                <label class="form-check-label" for="checkAttendance">Attendance</label>
+                            </div>
                         </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="enable_dinner" id="checkDinner" {% if hackathon.enable_dinner %}checked{% endif %}>
-                            <label class="form-check-label" for="checkDinner">Dinner</label>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i> Save</button>
-                </form>
+                        <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i> Save</button>
+                    </form>
+                </div>
             </div>
 
             <div class="hh-card p-4">
@@ -481,6 +506,34 @@
                 
                 // Initial Load
                 fetchFaculty();
+            });
+        </script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const mealsBtn = document.getElementById('qrCfgMealsBtn');
+                const attendanceBtn = document.getElementById('qrCfgAttendanceBtn');
+                const mealsPanel = document.getElementById('qrCfgMealsPanel');
+                const attendancePanel = document.getElementById('qrCfgAttendancePanel');
+
+                if (!mealsBtn || !attendanceBtn || !mealsPanel || !attendancePanel) return;
+
+                function setActive(which) {
+                    const showMeals = which === 'meals';
+                    mealsPanel.style.display = showMeals ? '' : 'none';
+                    attendancePanel.style.display = showMeals ? 'none' : '';
+
+                    mealsBtn.classList.toggle('btn-primary', showMeals);
+                    mealsBtn.classList.toggle('btn-outline-light', !showMeals);
+                    attendanceBtn.classList.toggle('btn-primary', !showMeals);
+                    attendanceBtn.classList.toggle('btn-outline-light', showMeals);
+                }
+
+                mealsBtn.addEventListener('click', () => setActive('meals'));
+                attendanceBtn.addEventListener('click', () => setActive('attendance'));
+
+                // Default view
+                setActive('meals');
             });
         </script>
 

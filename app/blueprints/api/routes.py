@@ -187,7 +187,9 @@ def scan_qr():
 
     # 3. Process by Type
     if qr_record.qr_type == 'ACCESS':
-        # Access is always allowed, just log if needed
+        if not getattr(team.hackathon, 'enable_attendance', True):
+            return jsonify({'status': 'error', 'message': 'Attendance QR is disabled for this hackathon.', 'data': response_data}), 403
+
         return jsonify({'status': 'success', 'message': 'Access Granted', 'data': response_data})
 
     elif qr_record.qr_type in ['BREAKFAST', 'LUNCH', 'DINNER']:
