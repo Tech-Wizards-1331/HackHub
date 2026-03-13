@@ -31,14 +31,11 @@ def admin_required(f):
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
+    """Admin overview dashboard (without detailed analytics charts)."""
     hackathons = Hackathon.query.all()
-    stats = {}
-    for h in hackathons:
-        stats[h.id] = {
-            'teams': len(h.teams)
-        }
-    
-    # --- Scan Statistics ---
+    stats = {h.id: {'teams': len(h.teams)} for h in hackathons}
+
+    # --- Scan Statistics (also reused by analysis page) ---
     real_participant_count = User.query.filter_by(role=UserRole.PARTICIPANT).count()
     total_participants = real_participant_count if real_participant_count > 0 else 1
 
@@ -61,6 +58,14 @@ def dashboard():
     }
 
     return render_template('admin/dashboard.html', hackathons=hackathons, stats=stats, scan_stats=scan_stats)
+
+
+@admin_bp.route('/analysis')
+@admin_required
+def analysis():
+    """Dedicated analytics page moved from the dashboard."""
+    hackathons = Hackathon.query.all()
+    return render_template('admin/analysis.html', hackathons=hackathons)
 
 @admin_bp.route('/create_hackathon', methods=['GET', 'POST'])
 @admin_required

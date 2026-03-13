@@ -1,9 +1,22 @@
 from flask import jsonify, request, session
 from . import api_bp
 from app.extensions import db
-from app.models import User, Team, TeamMember, Hackathon, HackathonStatus, UserRole, TeamQR, TeamMealUsage, TeamJoinRequest, TeamVisibility
-from sqlalchemy import and_
-from sqlalchemy import text
+from app.models import (
+    User,
+    Team,
+    TeamMember,
+    Hackathon,
+    HackathonStatus,
+    UserRole,
+    TeamQR,
+    TeamMealUsage,
+    TeamJoinRequest,
+    TeamVisibility,
+    QRLog,
+    Evaluation,
+    ScanLog,
+)
+from sqlalchemy import and_, text, func
 from datetime import datetime, timedelta
 
 
@@ -254,7 +267,18 @@ def analytics_summary(hackathon_id):
     now = datetime.utcnow()
 
     # ---------------- Registrations: last 7 days (accounts) ----------------
-    start_day = (now - timedelta(days=6)).date()
+    # Use actual data range (latest registration) so demo data always appears,
+    # and group in Python for cross-database compatibility.
+
+    users = User.query.filter(User.created_at.isnot(None)).all()
+
+    if users:
+        all_dates = [u.created_at.date() for u in users]
+        ref_day = max(all_dates)
+    else:
+        ref_day = now.date()
+
+    start_day = ref_day - timedelta(days=6)
     days = [start_day + timedelta(days=i) for i in range(7)]
     day_labels = [d.strftime('%Y-%m-%d') for d in days]
 
@@ -262,42 +286,33 @@ def analytics_summary(hackathon_id):
     users_by_day = {k: 0 for k in day_labels}
     participants_by_day = {k: 0 for k in day_labels}
 
-    try:
-        rows = db.session.execute(text('''
-            SELECT created_at::date AS d,
-                   COUNT(*) AS total,
-                   SUM(CASE WHEN lower(role::text) = 'participant' THEN 1 ELSE 0 END) AS participants
-            FROM users
-            WHERE created_at IS NOT NULL
-              AND created_at::date >= :start_day
-            GROUP BY created_at::date
-        '''), {'start_day': start_day.isoformat()}).all()
-
-        for d, total, participants in rows:
-            key = str(d)
+    for u in users:
+        d = u.created_at.date()
+        if start_day <= d <= ref_day:
+            key = d.strftime('%Y-%m-%d')
             if key in users_by_day:
-                users_by_day[key] = int(total or 0)
-                participants_by_day[key] = int(participants or 0)
-    except Exception:
-        # If older DB lacks created_at despite migration, keep zeros.
-        pass
+                users_by_day[key] += 1
+                if u.role == UserRole.PARTICIPANT:
+                    participants_by_day[key] += 1
 
     # Team registrations by day (if teams.created_at exists)
     team_by_day = {k: 0 for k in day_labels}
     try:
-        rows = db.session.execute(text('''
-            SELECT t.created_at::date AS d, COUNT(*) AS total
-            FROM teams t
-            WHERE t.hackathon_id = :hid
-              AND t.created_at IS NOT NULL
-              AND t.created_at::date >= :start_day
-            GROUP BY t.created_at::date
-        '''), {'hid': hackathon_id, 'start_day': start_day.isoformat()}).all()
-        for d, total in rows:
-            key = str(d)
-            if key in team_by_day:
-                team_by_day[key] = int(total or 0)
+        # Some schemas have a teams.created_at column; if present, use it.
+        rows = db.session.execute(
+            text("SELECT created_at FROM teams WHERE hackathon_id = :hid AND created_at IS NOT NULL"),
+            {"hid": hackathon_id},
+        ).all()
+        for (created_at,) in rows:
+            if not created_at:
+                continue
+            d = created_at.date()
+            if start_day <= d <= ref_day:
+                key = d.strftime('%Y-%m-%d')
+                if key in team_by_day:
+                    team_by_day[key] += 1
     except Exception:
+        # Older DBs without teams.created_at just won't show team trend line.
         pass
 
     registrations = {
@@ -325,23 +340,34 @@ def analytics_summary(hackathon_id):
         event_date = hackathon.start_date.date()
         attendance['event_date'] = event_date.isoformat()
         try:
-            # QRLog table stores participant scans (registration/meal). We count REGISTRATION scans for the event day.
-            rows = db.session.execute(text('''
-                SELECT
-                    COUNT(*) AS total_scans,
-                    COUNT(DISTINCT participant_id) AS unique_participants
-                FROM qr_logs
-                WHERE scan_type = 'REGISTRATION'
-                  AND "timestamp"::date = :event_date
-            '''), {'event_date': event_date.isoformat()}).one()
-            attendance['checked_in_total_scans'] = int(rows[0] or 0)
-            attendance['checked_in_unique'] = int(rows[1] or 0)
+            # QRLog table stores participant scans (registration/meal).
+            # Use ORM/func.date for cross-database compatibility.
+            total_scans, unique_participants = (
+                db.session.query(
+                    func.count(QRLog.id),
+                    func.count(func.distinct(QRLog.participant_id)),
+                )
+                .filter(
+                    QRLog.scan_type == 'REGISTRATION',
+                    func.date(QRLog.timestamp) == event_date,
+                )
+                .one()
+            )
+            attendance['checked_in_total_scans'] = int(total_scans or 0)
+            attendance['checked_in_unique'] = int(unique_participants or 0)
         except Exception:
             pass
 
     # ---------------- Evaluations: live (last 60 min) ----------------
     # Bucket into 5-min intervals for smoother charts.
-    eval_now = now
+    # Anchor live window around latest evaluation if available so demo data
+    # shows up even when timestamps are not near the current wall-clock time.
+    latest_eval = (
+        db.session.query(func.max(Evaluation.created_at))
+        .filter(Evaluation.hackathon_id == hackathon_id)
+        .scalar()
+    )
+    eval_now = latest_eval or now
     eval_start = eval_now - timedelta(minutes=60)
     buckets = []
     tcur = eval_start.replace(second=0, microsecond=0)
@@ -354,34 +380,26 @@ def analytics_summary(hackathon_id):
     bucket_labels = [dt.strftime('%H:%M') for dt in buckets]
     bucket_counts = {dt: 0 for dt in buckets}
 
-    try:
-        rows = db.session.execute(text('''
-            SELECT to_char(
-                     date_trunc('hour', created_at)
-                     + (floor(extract(minute from created_at) / 5) * interval '5 minutes'),
-                     'YYYY-MM-DD HH24:MI'
-                   ) AS bucket,
-                   COUNT(*) AS total
-            FROM evaluations
-            WHERE hackathon_id = :hid
-              AND created_at IS NOT NULL
-              AND created_at >= :eval_start
-            GROUP BY bucket
-        '''), {'hid': hackathon_id, 'eval_start': eval_start}).all()
+    # Fetch evaluations in the window and bucket in Python for portability.
+    eval_rows = (
+        Evaluation.query
+        .filter(
+            Evaluation.hackathon_id == hackathon_id,
+            Evaluation.created_at.isnot(None),
+            Evaluation.created_at >= eval_start,
+            Evaluation.created_at <= eval_now,
+        )
+        .all()
+    )
 
-        # Map bucket strings back onto our labels
-        for bucket_str, total in rows:
-            # bucket_str like '2026-01-28 23:10'
-            try:
-                bdt = datetime.strptime(bucket_str, '%Y-%m-%d %H:%M')
-                # Normalize seconds
-                bdt = bdt.replace(second=0, microsecond=0)
-                if bdt in bucket_counts:
-                    bucket_counts[bdt] = int(total or 0)
-            except Exception:
-                continue
-    except Exception:
-        pass
+    def _floor_to_5_minutes(dt: datetime) -> datetime:
+        minute_block = (dt.minute // 5) * 5
+        return dt.replace(minute=minute_block, second=0, microsecond=0)
+
+    for e in eval_rows:
+        bdt = _floor_to_5_minutes(e.created_at)
+        if bdt in bucket_counts:
+            bucket_counts[bdt] += 1
 
     evaluations_live = {
         'labels': bucket_labels,
@@ -393,6 +411,50 @@ def analytics_summary(hackathon_id):
         }
     }
 
+    # ---------------- Live Scan Comparison: today, per hackathon ----------------
+    # Derive participants for this hackathon via team memberships and then
+    # count their ScanLog entries by access_type for today. This keeps the
+    # scan comparison specific to the selected hackathon.
+
+    participant_ids = [
+        row[0]
+        for row in (
+            db.session.query(TeamMember.user_id)
+            .join(Team, Team.id == TeamMember.team_id)
+            .filter(Team.hackathon_id == hackathon_id)
+            .distinct()
+            .all()
+        )
+    ]
+
+    total_participants = len(participant_ids)
+
+    live_scan = {
+        'today': now.date().isoformat(),
+        'total_participants': total_participants,
+        'counts': {k: 0 for k in ['ENTRY', 'BREAKFAST', 'LUNCH', 'DINNER']},
+        'percentages': {k: 0.0 for k in ['ENTRY', 'BREAKFAST', 'LUNCH', 'DINNER']},
+    }
+
+    if total_participants > 0:
+        today = now.date()
+        base_q = (
+            db.session.query(ScanLog.access_type, func.count(func.distinct(ScanLog.user_id)))
+            .filter(
+                ScanLog.user_id.in_(participant_ids),
+                func.date(ScanLog.scan_time) == today,
+            )
+            .group_by(ScanLog.access_type)
+        )
+
+        for access_type, count in base_q:
+            key = str(access_type).upper()
+            if key in live_scan['counts']:
+                live_scan['counts'][key] = int(count or 0)
+
+        for key, count in live_scan['counts'].items():
+            live_scan['percentages'][key] = round((count / total_participants) * 100, 1) if total_participants else 0.0
+
     return jsonify({
         'hackathon': {
             'id': hackathon.id,
@@ -403,6 +465,7 @@ def analytics_summary(hackathon_id):
         'registrations_last_7d': registrations,
         'attendance_event_day': attendance,
         'evaluations_live': evaluations_live,
+        'live_scan_comparison': live_scan,
         'notes': {
             'charts_ui_ready': True,
             'connect_data_when_available': False

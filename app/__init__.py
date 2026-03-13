@@ -152,7 +152,12 @@ def create_app(config_class=Config):
                 eval_cols = [row[1] for row in db.session.execute(text('PRAGMA table_info(evaluations)')).all()]
                 missing = []
                 desired = {
+                    # Legacy compatibility: some older DBs lack these newer columns
                     'hackathon_id': 'INTEGER',
+                    'stage_id': 'INTEGER DEFAULT 1',
+                    # Keep legacy aggregate score alongside newer rubric-based scores
+                    'score': 'FLOAT DEFAULT 0.0',
+                    'comments': 'TEXT',
                     'innovation_score': 'INTEGER',
                     'technical_score': 'INTEGER',
                     'uiux_score': 'INTEGER',
@@ -218,6 +223,16 @@ def create_app(config_class=Config):
                     db.session.rollback()
         except Exception:
             # If migration fails, don't prevent app from starting; route handlers will surface issues.
+            db.session.rollback()
+
+        # In development, auto-seed demo analytics data if the DB is empty
+        # so that admin dashboards show realistic charts.
+        try:
+            if app.config.get('ENV') != 'production' and app.debug:
+                from app.services.demo_analytics_seed import ensure_demo_analytics_seeded
+
+                ensure_demo_analytics_seeded()
+        except Exception:
             db.session.rollback()
         
     return app

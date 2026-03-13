@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="hh-badge hh-badge--info"><i class="bi bi-shield-lock"></i> Admin</span>
+                <span class="hh-badge hh-badge--neutral"><i class="bi bi-bar-chart"></i> Analytics</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-semibold mt-3">Analysis</h1>
+            <p class="hh-muted mt-1">Live trends and QR analytics for your hackathons.</p>
+        </div>
+    </div>
+
+    <div class="hh-card p-4 mt-2">
+        <div>
+            <div class="text-sm hh-muted">Analytics</div>
+            <h2 class="text-lg font-semibold">Trends</h2>
+            <p class="hh-muted mt-1 text-sm">Live charts (admin-only) for the selected hackathon.</p>
+
+            {% if hackathons|length > 0 %}
+            <div class="mt-3">
+                <label class="text-xs hh-muted uppercase tracking-widest" for="hh-analytics-hackathon">Hackathon</label>
+                <select id="hh-analytics-hackathon" class="form-select mt-1" style="background: rgba(255,255,255,0.06);">
+                    {% for hackathon in hackathons %}
+                        <option value="{{ hackathon.id }}">{{ hackathon.name }} (ID: {{ hackathon.id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="mt-3 hh-muted text-sm">Create a hackathon to see analytics.</div>
+            {% endif %}
+        </div>
+
+        {% if hackathons|length > 0 %}
+        <div class="mt-4 grid gap-3">
+            <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-sm font-medium">Registrations</div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> last 7d</span>
+                </div>
+                <div class="relative" style="height: 120px;">
+                    <canvas id="hh-chart-registrations"></canvas>
+                </div>
+            </div>
+            <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-sm font-medium">Live Scan Comparison</div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-bar-chart"></i> Today</span>
+                </div>
+                <div class="grid gap-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span><i class="bi bi-pass-fill me-1"></i> Registration</span>
+                            <span data-hh-scan-text="ENTRY">--</span>
+                        </div>
+                        <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                            <div data-hh-scan-bar="ENTRY" style="width: 0%; background: var(--hh-accent); height: 100%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span><i class="bi bi-cup-hot-fill me-1"></i> Breakfast</span>
+                            <span data-hh-scan-text="BREAKFAST">--</span>
+                        </div>
+                        <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                            <div data-hh-scan-bar="BREAKFAST" style="width: 0%; background: #f59e0b; height: 100%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span><i class="bi bi-sun-fill me-1"></i> Lunch</span>
+                            <span data-hh-scan-text="LUNCH">--</span>
+                        </div>
+                        <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                            <div data-hh-scan-bar="LUNCH" style="width: 0%; background: #38bdf8; height: 100%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span><i class="bi bi-moon-stars-fill me-1"></i> Dinner</span>
+                            <span data-hh-scan-text="DINNER">--</span>
+                        </div>
+                        <div class="rounded-full overflow-hidden" style="background: rgba(255,255,255,0.1); height: 8px;">
+                            <div data-hh-scan-bar="DINNER" style="width: 0%; background: #ef4444; height: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="hh-card p-3" style="background: rgba(255,255,255,0.04);">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-sm font-medium">Evaluations</div>
+                    <span class="hh-badge hh-badge--neutral"><i class="bi bi-graph-up"></i> live</span>
+                </div>
+                <div class="relative" style="height: 120px;">
+                    <canvas id="hh-chart-evaluations"></canvas>
+                </div>
+            </div>
+
+            <div class="hh-muted text-xs" id="hh-analytics-status" aria-live="polite"></div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if hackathons|length > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const select = document.getElementById('hh-analytics-hackathon');
+    const statusEl = document.getElementById('hh-analytics-status');
+    const kpiAttendance = document.querySelector('[data-hh-kpi-attendance]');
+    const kpiAttendanceSubtitle = document.querySelector('[data-hh-kpi-attendance-subtitle]');
+    const kpiEvals = document.querySelector('[data-hh-kpi-evals]');
+    const kpiEvalsSubtitle = document.querySelector('[data-hh-kpi-evals-subtitle]');
+
+    const ctxReg = document.getElementById('hh-chart-registrations');
+    const ctxEval = document.getElementById('hh-chart-evaluations');
+    const scanTextEls = {
+        ENTRY: document.querySelector('[data-hh-scan-text="ENTRY"]'),
+        BREAKFAST: document.querySelector('[data-hh-scan-text="BREAKFAST"]'),
+        LUNCH: document.querySelector('[data-hh-scan-text="LUNCH"]'),
+        DINNER: document.querySelector('[data-hh-scan-text="DINNER"]'),
+    };
+    const scanBarEls = {
+        ENTRY: document.querySelector('[data-hh-scan-bar="ENTRY"]'),
+        BREAKFAST: document.querySelector('[data-hh-scan-bar="BREAKFAST"]'),
+        LUNCH: document.querySelector('[data-hh-scan-bar="LUNCH"]'),
+        DINNER: document.querySelector('[data-hh-scan-bar="DINNER"]'),
+    };
+
+    if (!select || !ctxReg || !ctxEval || !window.Chart) return;
+
+    const chartColors = {
+        text: 'rgba(229,231,235,0.9)',
+        grid: 'rgba(255,255,255,0.08)',
+        purple: 'rgba(124,58,237,0.95)',
+        blue: 'rgba(56,189,248,0.95)',
+        green: 'rgba(34,197,94,0.95)',
+        amber: 'rgba(245,158,11,0.95)',
+        pink: 'rgba(244,114,182,0.95)'
+    };
+
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(2,6,23,0.92)',
+                borderColor: 'rgba(255,255,255,0.10)',
+                borderWidth: 1,
+                titleColor: chartColors.text,
+                bodyColor: chartColors.text
+            }
+        },
+        scales: {
+            x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, maxRotation: 0 } },
+            y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text }, beginAtZero: true }
+        }
+    };
+
+    let regChart = null;
+    let evalChart = null;
+
+    function setStatus(text) {
+        if (statusEl) statusEl.textContent = text || '';
+    }
+
+    async function loadAnalytics(hackathonId) {
+        setStatus('Loading analytics…');
+
+        const url = `/api/analytics/hackathon/${encodeURIComponent(hackathonId)}/summary`;
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) {
+            const msg = resp.status === 403
+                ? 'Unauthorized (admin session required).'
+                : `Failed to load analytics (HTTP ${resp.status}).`;
+            setStatus(msg);
+            return;
+        }
+
+        const data = await resp.json();
+
+        // KPI updates (if present on other pages)
+        const att = data.attendance_event_day || {};
+        if (kpiAttendance) kpiAttendance.textContent = (att.checked_in_unique ?? 0);
+        if (kpiAttendanceSubtitle) {
+            const d = att.event_date ? `Event date: ${att.event_date}` : 'Set hackathon start date to enable event-day attendance.';
+            kpiAttendanceSubtitle.textContent = d;
+        }
+
+        const evals = data.evaluations_live || {};
+        if (kpiEvals) kpiEvals.textContent = (evals.totals && typeof evals.totals.last_60m === 'number') ? evals.totals.last_60m : 0;
+        if (kpiEvalsSubtitle) kpiEvalsSubtitle.textContent = 'Submitted (last 60 min)';
+
+        // Registrations chart
+        const reg = data.registrations_last_7d || { labels: [], series: {} };
+        const regLabels = reg.labels || [];
+        const series = reg.series || {};
+        const accountsTotal = series.accounts_total || [];
+        const teamsRegistered = series.teams_registered || [];
+
+        if (regChart) regChart.destroy();
+        regChart = new Chart(ctxReg, {
+            type: 'line',
+            data: {
+                labels: regLabels,
+                datasets: [
+                    {
+                        label: 'Accounts',
+                        data: accountsTotal,
+                        borderColor: chartColors.purple,
+                        backgroundColor: 'rgba(124,58,237,0.12)',
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Teams',
+                        data: teamsRegistered,
+                        borderColor: chartColors.green,
+                        backgroundColor: 'rgba(34,197,94,0.08)',
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                ...baseOptions,
+                plugins: { ...baseOptions.plugins, legend: { display: true, labels: { color: chartColors.text, boxWidth: 10 } } },
+                scales: {
+                    ...baseOptions.scales,
+                    x: { ...baseOptions.scales.x, ticks: { ...baseOptions.scales.x.ticks, callback: (v) => {
+                        const label = regLabels[v] || '';
+                        return label.slice(5); // show MM-DD
+                    } } }
+                }
+            }
+        });
+
+        // Evaluations live chart (smooth glowing area line)
+        const evalLabels = evals.labels || [];
+        const evalSeries = (evals.series && evals.series.evaluations_submitted) ? evals.series.evaluations_submitted : [];
+
+        // Create a soft vertical gradient for the fill
+        const evalCtx = ctxEval.getContext('2d');
+        const gradient = evalCtx.createLinearGradient(0, 0, 0, ctxEval.clientHeight || 120);
+        gradient.addColorStop(0, 'rgba(244,114,182,0.55)');
+        gradient.addColorStop(1, 'rgba(244,114,182,0.02)');
+
+        if (evalChart) evalChart.destroy();
+        evalChart = new Chart(ctxEval, {
+            type: 'line',
+            data: {
+                labels: evalLabels,
+                datasets: [
+                    {
+                        label: 'Evaluations (last 60 min)',
+                        data: evalSeries,
+                        borderColor: chartColors.pink,
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHitRadius: 8,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: '#0f172a',
+                        pointBorderColor: chartColors.pink
+                    }
+                ]
+            },
+            options: {
+                ...baseOptions,
+                animation: {
+                    duration: 700,
+                    easing: 'easeOutCubic'
+                },
+                scales: {
+                    ...baseOptions.scales,
+                    x: { ...baseOptions.scales.x, ticks: { ...baseOptions.scales.x.ticks, maxTicksLimit: 6 } }
+                }
+            }
+        });
+
+        // Live scan comparison (per hackathon)
+        const live = data.live_scan_comparison || {};
+        const counts = live.counts || {};
+        const perc = live.percentages || {};
+        ['ENTRY', 'BREAKFAST', 'LUNCH', 'DINNER'].forEach((key) => {
+            const c = typeof counts[key] === 'number' ? counts[key] : 0;
+            const p = typeof perc[key] === 'number' ? perc[key] : 0;
+            if (scanTextEls[key]) scanTextEls[key].textContent = `${p}% (${c})`;
+            if (scanBarEls[key]) scanBarEls[key].style.width = `${p}%`;
+        });
+
+        setStatus(`Updated: ${data.hackathon ? data.hackathon.name : 'hackathon'} • ${data.generated_at || ''}`);
+    }
+
+    select.addEventListener('change', () => {
+        const hid = select.value;
+        if (hid) loadAnalytics(hid).catch(() => setStatus('Failed to load analytics.'));
+    });
+
+    // initial
+    if (select.value) {
+        loadAnalytics(select.value).catch(() => setStatus('Failed to load analytics.'));
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

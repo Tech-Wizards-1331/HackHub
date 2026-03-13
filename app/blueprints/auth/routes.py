@@ -25,7 +25,12 @@ def register():
         if experience_level not in allowed_experience:
             flash('Experience Level is required', 'error')
             return redirect(url_for('auth.register'))
-        
+
+        # Ensure username is unique
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists', 'error')
+            return redirect(url_for('auth.register'))
+
         if User.query.filter_by(email=email).first():
             flash('Email already exists', 'error')
             return redirect(url_for('auth.register'))
