@@ -56,14 +56,7 @@ def create_app(config_class=Config):
             Hackathon.query
             .filter(Hackathon.start_date.isnot(None))
             .filter(func.date(Hackathon.start_date) > today)
-            .filter(Hackathon.status.in_([
-                HackathonStatus.REGISTRATION_OPEN,
-                HackathonStatus.REGISTRATION_CLOSED,
-                HackathonStatus.PROBLEM_SELECTION,
-                HackathonStatus.ONGOING,
-                HackathonStatus.EVALUATION,
-                HackathonStatus.RESULT_PUBLISHED,
-            ]))
+            .filter(Hackathon.status == HackathonStatus.REGISTRATION_OPEN)
             .order_by(Hackathon.start_date.asc())
             .all()
         )
